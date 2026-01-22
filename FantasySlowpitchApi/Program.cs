@@ -20,7 +20,6 @@ builder.Services.AddSwaggerGen(c =>
         Version = "v1"
     });
 
-    // 🔐 JWT Bearer definition
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
@@ -31,7 +30,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Enter: Bearer {your JWT token}"
     });
 
-    // 🔒 Apply Bearer token globally
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -47,7 +45,6 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 });
-
 
 // DB
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -74,26 +71,34 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 
 builder.Services.AddAuthorization();
+
+// 🌍 ENV-DRIVEN CORS
+var allowedOrigins = builder.Configuration
+    .GetSection("AllowedOrigins")
+    .Get<string[]>();
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("DevCors", policy =>
+    options.AddPolicy("CorsPolicy", policy =>
     {
         policy
-            .WithOrigins("http://localhost:5173")
+            .WithOrigins(allowedOrigins!)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
 });
 
 var app = builder.Build();
-app.UseCors("DevCors");
+
+app.UseCors("CorsPolicy");
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
-app.UseAuthentication(); // 👈 MUST come before authorization
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

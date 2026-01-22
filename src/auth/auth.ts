@@ -1,8 +1,9 @@
 export const TOKEN_KEY = "fantasy_jwt";
 
+import { API_URL } from "../config";
 
 export async function login(name: string, pin: string) {
-  const res = await fetch("http://localhost:5000/auth/login", {
+  const res = await fetch(`${API_URL}/auth/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

@@ -1,23 +1,16 @@
 // MobileTeamCard.tsx
 import React from "react";
 import type { Team, PlayerTotals, PendingSwap } from "./types";
-import { getCaptainKey, getWeeklyBench } from "./App";
+import { getCaptainKey, getWeeklyBench } from "./AuthedApp";
 
 type Props = {
     team: Team;
     teamIdx: 0 | 1;
     total: number;
     playersByKey: Map<string, PlayerTotals>;
-    availablePlayers: PlayerTotals[];
     pendingSwap: PendingSwap | null;
     setPendingSwap: React.Dispatch<React.SetStateAction<PendingSwap | null>>;
     executeSwap: () => void;
-    doAddDrop: (
-        idx: 0 | 1,
-        night: "MON" | "FRI",
-        dropKey: string,
-        addKey: string
-    ) => void;
 
     record: {
         wins: number;
@@ -29,8 +22,6 @@ type Props = {
     isPlayerLocked: (team: Team, key: string) => boolean;
     isNightLocked: (team: Team, night: "MON" | "FRI") => boolean;
     LockIcon: React.FC<{ locked: boolean; isCaptain?: boolean }>;
-    isDraftComplete: boolean;
-       removeDrafted: (idx: 0 | 1, key: string) => void;
 };
 
 export function MobileTeamCard({
@@ -42,17 +33,12 @@ export function MobileTeamCard({
     setPendingSwap,
     executeSwap,
     record,
-    availablePlayers,
-    doAddDrop,
     canEditTeam,
     isPlayerLocked,
     isNightLocked,
-    isDraftComplete,
-    removeDrafted,
-    LockIcon,
+   LockIcon,
 }: Props) {
     const idx = teamIdx;
-
     const activeNight: "MON" | "FRI" =
         !team.processed.MON ? "MON" : "FRI";
 

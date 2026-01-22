@@ -1,10 +1,11 @@
-const API_BASE = import.meta.env.VITE_API_BASE;
+import { API_URL } from "../config";
+import { apiAuthFetch } from "./apiAuthFetch";
 
 export async function startNewSeason() {
- console.log("API_BASE:", API_BASE);
+ console.log("API_BASE:", API_URL);
 
  
-    const res = await fetch(`${API_BASE}/api/seasons/new`, {
+    const res = await apiAuthFetch(`/api/seasons/new`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
   });
@@ -18,38 +19,26 @@ export async function startNewSeason() {
 }
 
 
+
 export async function getCurrentSeason() {
-  const res = await fetch(
-    `${import.meta.env.VITE_API_BASE}/api/seasons/current`
-  );
-
-  if (!res.ok) {
-    throw new Error("No active season found");
-  }
-
+  const res = await apiAuthFetch("/api/seasons/current");
+  if (!res.ok) throw new Error("Failed to load season");
   return res.json();
 }
 
+
 export async function getSeasonTeams(seasonId: number) {
-  const res = await fetch(
-    `${API_BASE}/api/seasons/${seasonId}/teams`
-  );
-
-  if (!res.ok) {
-    throw new Error("Failed to load season teams");
-  }
-
-  return res.json() as Promise<
-    { teamId: string; name: string }[]
-  >;
+  const res = await apiAuthFetch(`/api/seasons/${seasonId}/teams`);
+  if (!res.ok) throw new Error("Failed to load teams");
+  return res.json();
 }
 
 export async function saveDraft(
   seasonId: number,
   picks: { teamId: string; playerId: string }[]
 ) {
-  const res = await fetch(
-    `http://localhost:5000/api/seasons/${seasonId}/draft`,
+  const res = await apiAuthFetch(
+    `/api/seasons/${seasonId}/draft`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -65,8 +54,8 @@ export async function saveDraft(
 
 
 export async function getSeasonDraft(seasonId: number) {
-  const res = await fetch(
-    `${import.meta.env.VITE_API_BASE}/api/seasons/${seasonId}/draft`
+  const res = await apiAuthFetch(
+    `/api/seasons/${seasonId}/draft`
   );
 
   if (!res.ok) {

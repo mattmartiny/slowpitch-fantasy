@@ -1,15 +1,17 @@
-import { TOKEN_KEY } from "../auth/auth";
+// src/auth/authFetch.ts
 
-export function authFetch(url: string, options: RequestInit = {}) {
-  const token = localStorage.getItem(TOKEN_KEY);
+export async function authFetch(
+  url: string,
+  options: RequestInit = {}
+) {
+  const token = localStorage.getItem("token");
 
   return fetch(url, {
     ...options,
     headers: {
-      ...(options.headers || {}),
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers || {}),
     },
   });
 }
-

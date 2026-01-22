@@ -1,4 +1,4 @@
-import { authFetch } from "./authFetch";
+import { apiAuthFetch } from "./apiAuthFetch";
 
 export type WeeklyLineupRow = {
   teamId: string;
@@ -15,8 +15,8 @@ export async function getWeeklyLineups(
   seasonId: number,
   week: number
 ): Promise<WeeklyLineupsResponse> {
-  const res = await authFetch(
-    `http://localhost:5000/api/lineups/${seasonId}/${week}`
+  const res = await apiAuthFetch(
+    `api/lineups/${seasonId}/${week}`
   );
 
   if (!res.ok) {

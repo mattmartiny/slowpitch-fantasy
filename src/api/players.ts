@@ -1,5 +1,7 @@
+import { apiAuthFetch } from "./apiAuthFetch";
+
 export async function getPlayers() {
-  const res = await fetch("http://localhost:5000/api/players");
+  const res = await apiAuthFetch("/api/players");
   if (!res.ok) throw new Error("Failed to load players");
-  return res.json() as Promise<{ playerId: string; name: string }[]>;
+  return res.json();
 }

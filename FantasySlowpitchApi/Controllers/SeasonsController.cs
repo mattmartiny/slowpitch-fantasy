@@ -62,81 +62,20 @@ public async Task<IActionResult> GetCurrentSeason()
     return Ok(season);
 }
 
-    [HttpPost("{seasonId}/draft")]
-    public async Task<IActionResult> SaveDraft(
-      int seasonId,
-      [FromBody] List<DraftPickDto> picks
-  )
-    {
-        if (picks == null || picks.Count == 0)
-            return BadRequest("No draft picks provided");
 
-        var conn = _db.Database.GetDbConnection();
-        await conn.OpenAsync();
+[HttpGet("seasons/{seasonId}/draft")]
+public async Task<IActionResult> GetDraft(int seasonId)
+{
+    var draft = await _db.SeasonDraft
+        .Where(d => d.SeasonId == seasonId)
+        .Select(d => new {
+            d.TeamId,
+            d.PlayerId
+        })
+        .ToListAsync();
 
-        // Clear existing draft for this season (safe to re-save)
-        await using (var clearCmd = conn.CreateCommand())
-        {
-            clearCmd.CommandText = @"
-            DELETE FROM mattmar1_mmartiny.season_team_players
-            WHERE season_id = @seasonId;
-        ";
-            clearCmd.Parameters.Add(new SqlParameter("@seasonId", seasonId));
-            await clearCmd.ExecuteNonQueryAsync();
-        }
-
-        // Insert draft picks
-        foreach (var p in picks)
-        {
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = @"
-            INSERT INTO mattmar1_mmartiny.season_team_players
-              (season_id, teamId, playerId)
-            VALUES
-              (@seasonId, @teamId, @playerId);
-        ";
-
-            cmd.Parameters.Add(new SqlParameter("@seasonId", seasonId));
-            cmd.Parameters.Add(new SqlParameter("@teamId", p.TeamId));
-            cmd.Parameters.Add(new SqlParameter("@playerId", p.PlayerId));
-
-            await cmd.ExecuteNonQueryAsync();
-        }
-
-        return Ok(new { saved = picks.Count });
-    }
-
-
-    [HttpGet("{seasonId}/draft")]
-    public async Task<IActionResult> GetDraft(int seasonId)
-    {
-        var results = new List<object>();
-
-        using var conn = new SqlConnection(
-            _config.GetConnectionString("Default")
-        );
-        await conn.OpenAsync();
-
-        var cmd = new SqlCommand(@"
-        SELECT teamId, playerId
-        FROM mattmar1_mmartiny.season_team_players
-        WHERE season_id = @seasonId
-    ", conn);
-
-        cmd.Parameters.AddWithValue("@seasonId", seasonId);
-
-        using var reader = await cmd.ExecuteReaderAsync();
-        while (await reader.ReadAsync())
-        {
-            results.Add(new
-            {
-                teamId = reader.GetGuid(0),
-                playerId = reader.GetGuid(1)
-            });
-        }
-
-        return Ok(results);
-    }
+    return Ok(draft);
+}
 
 
 [HttpPost("{seasonId:int}/advance-week")]

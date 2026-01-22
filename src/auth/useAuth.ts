@@ -1,4 +1,5 @@
 import { TOKEN_KEY } from "./auth";
+import { useEffect, useState } from "react";
 
 export type AuthUser = {
   name: string;
@@ -8,12 +9,9 @@ export type AuthUser = {
 type JwtPayload = {
   name?: string;
   unique_name?: string;
-  teamId?: string; // 👈 IMPORTANT
+  teamId?: string;
 };
 
-/**
- * Safe Base64URL → JSON parser
- */
 function parseJwt(token: string): JwtPayload {
   try {
     const base64Url = token.split(".")[1];
@@ -31,17 +29,33 @@ function parseJwt(token: string): JwtPayload {
   }
 }
 
-export function useAuth(): AuthUser | null {
-  const token = localStorage.getItem(TOKEN_KEY);
-  if (!token) return null;
+export function useAuth(authDirty?: number) {
+  const [auth, setAuth] = useState<AuthUser | null | undefined>(undefined);
 
-  const payload = parseJwt(token);
+  useEffect(() => {
+    const token = localStorage.getItem(TOKEN_KEY);
 
-  const rawName = payload.name ?? payload.unique_name;
-  if (!rawName) return null;
+    if (!token) {
+      setAuth(null);
+      return;
+    }
 
-  return {
-    name: rawName.toLowerCase(), // normalize once
-    teamId: payload.teamId ?? null, // ✅ may be null for now
-  };
+    const payload = parseJwt(token);
+
+    const name =
+      payload.name ??
+      payload.unique_name ??
+      null;
+
+    setAuth(
+      name
+        ? {
+            name,
+            teamId: payload.teamId ?? null,
+          }
+        : null
+    );
+  }, [authDirty]);
+
+  return auth;
 }

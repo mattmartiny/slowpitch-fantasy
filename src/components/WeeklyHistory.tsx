@@ -12,7 +12,7 @@ type Props = {
   playersByKey: Map<string, PlayerTotals>;
 };
 
-export function WeeklyHistory({ history, owners, playersByKey }: Props) {
+export function WeeklyHistory({ history, owners}: Props) {
   if (!history.length) {
     return <div style={{ fontSize: 13, color: "#666" }}>No completed weeks yet.</div>;
   }

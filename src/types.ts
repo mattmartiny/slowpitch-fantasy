@@ -84,16 +84,3 @@ export type TeamState = {
     FRI: string | null;
   };
 };
-
-type WeeklyLineupsResponse = {
-  lineup: {
-    teamId: string;
-    playerId: string;
-    slot: "starter" | "bench" | "active";
-  }[];
-  captains: {
-    teamId: string;
-    captainMon: string | null;
-    captainFri: string | null;
-  }[];
-};

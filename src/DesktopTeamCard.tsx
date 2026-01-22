@@ -1,8 +1,8 @@
 // DesktopTeamCard.tsx
 import type { Team, PlayerTotals } from "./types";
-import { getCaptainKey } from "./App"
+import { getCaptainKey } from "./AuthedApp"
 
-import { getWeeklyBench } from "./App"; // or utils
+import { getWeeklyBench } from "./AuthedApp"; // or utils
 type PendingSwap = {
     teamIdx: 0 | 1;
     night: "MON" | "FRI";

@@ -11,20 +11,20 @@ export default function Login({ onSuccess }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-async function handleLogin() {
-  console.log("Attempting login", name, pin);
+  async function handleLogin() {
+    setLoading(true);
+    setError(null);
 
-  try {
-    await login(name, pin);
-    console.log("JWT after login:", localStorage.getItem("fantasy_jwt"));
-    window.location.reload();
-  } catch (err) {
-    console.error("Login error", err);
-    setError("Invalid name or PIN");
+    try {
+      await login(name, pin);
+      onSuccess(); // ✅ NO reload
+    } catch (err) {
+      console.error("Login error", err);
+      setError("Invalid name or PIN");
+    } finally {
+      setLoading(false);
+    }
   }
-}
-
-
 
   return (
     <div style={{ maxWidth: 320, margin: "40px auto" }}>

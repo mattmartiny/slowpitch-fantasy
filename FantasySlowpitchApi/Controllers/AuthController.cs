@@ -52,9 +52,7 @@ private string CreateJwt(User user)
 }
 
 
-
-
-       [HttpPost("login")]
+    [HttpPost("login")]
 public async Task<IActionResult> Login(LoginRequest req)
 {
     var rawName = req.Name;
