@@ -11,7 +11,6 @@ import { DesktopTeamCard } from "./DesktopTeamCard";
 import { MobileTeamCard } from "./MobileTeamCard";
 import { DesktopPlayerPool } from "./DesktopPlayerPool";
 import { MobilePlayerPool } from "./MobilePlayerPool";
-import { TOKEN_KEY } from "./auth/auth";
 import { NewSeasonButton } from "./components/NewSeasonButton";
 import { saveDraft } from "./api/seasons";
 import { getWeeklyLineups } from "./api/lineups";
@@ -42,13 +41,6 @@ const SCORING = {
   out: -0.5,
 } as const;
 
-type OwnerKey = "martiny" | "stufflebean";
-
-const OWNER_CAPTAINS: Record<OwnerKey, string> = {
-  martiny: "matt martiny",
-  stufflebean: "ryan stufflebean",
-};
-
 
 type AppState = {
   week: number;
@@ -75,8 +67,13 @@ const num = (v: unknown) => {
 const norm = (s: string) => s.trim().toLowerCase();
 
 export function getWeeklyBench(team: Team, night: "MON" | "FRI") {
-  const roster = new Set([...team.starters, ...team.bench]);
-  const actives = new Set(team.activeByNight[night]);
+  const active = Array.isArray(team.active) ? team.active : [];
+  const bench = Array.isArray(team.bench) ? team.bench : [];
+  const activesByNight = team.activeByNight?.[night] ?? [];
+
+  const roster = new Set([...active, ...bench]);
+  const actives = new Set(activesByNight);
+
   return Array.from(roster).filter(k => !actives.has(k));
 }
 
@@ -263,10 +260,15 @@ function emptyState(dbTeams?: { teamId: string; name: string }[]): AppState {
   const blankTeam = (owner: string): Team => ({
     teamId: '',
     owner,
-    starters: [],
+    active: [],
     bench: [],
+    ownerUserId: "",
 
+    captainKey:
 
+      owner.trim().toLowerCase() === "martiny"
+        ? "matt martiny"
+        : "ryan stufflebean",
     // ✅ STEP 1 INIT
     activeByNight: {
       MON: [],
@@ -369,29 +371,31 @@ function buildPoolFromDb(
   }));
 }
 
-function normalizeDbTeams(teams: { teamId: string; name: string }[]) {
-  const byName = new Map(teams.map(t => [t.name.trim().toLowerCase(), t]));
+function normalizeDbTeams(
+  teams: { teamId: string; name: string; captainKey: string }[]
+) {
+  const byName = new Map(
+    teams.map(t => [t.name.trim().toLowerCase(), t])
+  );
+
   const martiny = byName.get("martiny");
   const stuff = byName.get("stufflebean");
-  if (!martiny || !stuff) return teams; // fallback if naming differs
+
+  if (!martiny || !stuff) return teams;
+
   return [martiny, stuff];
 }
 
 
-function toOwnerKey(owner: string): OwnerKey | null {
-  const o = owner.trim().toLowerCase();
-  if (o === "martiny") return "martiny";
-  if (o === "stufflebean") return "stufflebean";
-  return null;
-}
+
 
 export function getCaptainKey(team: Team): string {
-  const ownerKey = toOwnerKey(team.owner);
-  if (!ownerKey) {
-    throw new Error(`Unknown owner for captain mapping: "${team.owner}"`);
+  if (!team.captainKey) {
+    throw new Error(`Captain not set for team ${team.teamId}`);
   }
-  return OWNER_CAPTAINS[ownerKey];
+  return team.captainKey;
 }
+
 
 function ensureCaptainOnRoster(team: Team, phase: "draft" | "weekly") {
   if (phase === "weekly") {
@@ -400,11 +404,11 @@ function ensureCaptainOnRoster(team: Team, phase: "draft" | "weekly") {
   }
 
   const cap = getCaptainKey(team);
-  const roster = new Set([...team.starters, ...team.bench]);
+  const roster = new Set([...team.active, ...team.bench]);
 
   if (!roster.has(cap)) {
     if (team.bench.length < 2) team.bench.push(cap);
-    else team.starters.push(cap);
+    else team.active.push(cap);
   }
 }
 
@@ -414,20 +418,37 @@ function ensureCaptainOnRoster(team: Team, phase: "draft" | "weekly") {
 function backfillBench(team: Team, phase: "draft" | "weekly") {
   if (phase === "weekly") return;
 
-  const roster = new Set([...team.starters, ...team.bench]);
+  const active = Array.isArray(team.active) ? team.active : [];
+  const bench = Array.isArray(team.bench) ? team.bench : [];
+
+  const roster = new Set([...active, ...bench]);
+
   const candidates = Array.from(
     new Set([
-      ...team.activeByNight.MON,
-      ...team.activeByNight.FRI,
+      ...(team.activeByNight?.MON ?? []),
+      ...(team.activeByNight?.FRI ?? []),
     ])
   ).filter(k => !roster.has(k));
 
-  while (team.bench.length < 2 && candidates.length) {
-    team.bench.push(candidates.pop()!);
+  while (bench.length < 2 && candidates.length) {
+    bench.push(candidates.pop()!);
   }
+
+  // 🔁 write back (important if active/bench were missing)
+  team.active = active;
+  team.bench = bench;
 }
 
-export function AuthedApp({ auth }: { auth: AuthUser }) {
+
+export function AuthedApp({
+  auth,
+  setAuth,
+}: {
+  auth: AuthUser;
+  setAuth: React.Dispatch<
+    React.SetStateAction<AuthUser | null | undefined>
+  >;
+}) {
   // ✅ ALL your existing hooks go here
   // dbTeams, state, effects, everything
 
@@ -453,11 +474,8 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
   }
 
 
-
-
-
   const [dbTeams, setDbTeams] = useState<
-    { teamId: string; name: string }[] | null
+    { teamId: string; name: string, captainKey: string }[] | null
   >(null);
   const [dbPlayers, setDbPlayers] = useState<{ playerId: string; name: string }[]>([]);
   const [draftReady, setDraftReady] = useState(false);
@@ -469,42 +487,47 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
 
 
   useEffect(() => {
-  if (!auth) return;
+    if (!auth) return;
 
-  console.log("🚀 BOOTSTRAP SEASON");
+    console.log("🚀 BOOTSTRAP SEASON");
 
-  getCurrentSeason()
-    .then(season => {
-      console.log("✅ SEASON LOADED", season);
+    (async () => {
+      try {
+        const season = await getCurrentSeason();
+        console.log("✅ SEASON LOADED", season);
 
-      setSeasonId(season.seasonId);
+        setSeasonId(season.seasonId);
 
-      setState(prev => ({
-        ...prev,
-        week: season.currentWeek,
-      }));
+        setState(prev => ({
+          ...prev,
+          week: season.currentWeek,
+        }));
 
-      return Promise.all([
-        getSeasonTeams(season.seasonId),
-        getSeasonDraft(season.seasonId),
-      ]);
-    })
-    .then(([teams, draft]) => {
-      console.log("✅ TEAMS LOADED", teams);
+        const [teams, draft] = await Promise.all([
+          getSeasonTeams(season.seasonId),
+          getSeasonDraft(season.seasonId), // ← HERE
+        ]);
 
-      setDbTeams(normalizeDbTeams(teams));
-      setDraftReady(true);
+        console.log("✅ TEAMS LOADED", teams);
 
-      if (draft.length) {
-        setState(prev =>
-          applyDraftFromDb(prev, draft, teams, prev.pool)
-        );
+        setDbTeams(normalizeDbTeams(teams));
+        setDraftReady(true);
+
+        if (draft && draft.length) {
+          setState(prev =>
+            applyDraftFromDb(prev, draft, teams, prev.pool)
+          );
+        } else {
+          console.log("ℹ️ No draft yet — manual assignment mode");
+        }
+
+      } catch (err) {
+        console.error("❌ BOOTSTRAP FAILED", err);
       }
-    })
-    .catch(err => {
-      console.error("❌ BOOTSTRAP FAILED", err);
-    });
-}, [auth]);
+    })();
+  }, [auth]);
+
+
 
 
   useEffect(() => {
@@ -544,8 +567,8 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
           !team.processed.MON &&
           !team.processed.FRI
         ) {
-          team.activeByNight.MON = [...team.starters];
-          team.activeByNight.FRI = [...team.starters];
+          team.activeByNight.MON = [...team.active];
+          team.activeByNight.FRI = [...team.active];
         }
       });
 
@@ -610,7 +633,7 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
 
     // 🛡️ Safety invariant check (dev-only)
     teams.forEach((team) => {
-      const roster = [...team.starters, ...team.bench];
+      const roster = [...team.active, ...team.bench];
       if (roster.length !== 6) {
         console.warn("❌ ROSTER CORRUPTION", team.owner, roster);
       }
@@ -620,7 +643,7 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
       owner: t.owner,
       MON: t.activeByNight.MON,
       FRI: t.activeByNight.FRI,
-      starters: t.starters,
+      starters: t.active,
       bench: t.bench,
     })));
 
@@ -739,26 +762,47 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
     () => window.matchMedia("(max-width: 768px)").matches,
     []
   );
+
+
   const teamIdx = useMemo<0 | 1 | null>(() => {
-    // ✅ Preferred path (future-proof)
-    if (auth?.teamId) {
+    if (!auth) return null;
+
+    if (auth.teamId) {
       const idx = state.teams.findIndex(
         t => t.teamId === auth.teamId
       );
       return idx === 0 || idx === 1 ? idx : null;
     }
 
-    // 🟡 TEMP FALLBACK (REQUIRED RIGHT NOW)
-    if (auth?.name) {
-      const idx = state.teams.findIndex(
-        t => t.owner.toLowerCase() === auth.name
-      );
-      return idx === 0 || idx === 1 ? idx : null;
-    }
-
+    // 🚫 NO NAME FALLBACK — WRONG TEAM IS WORSE THAN NO TEAM
     return null;
   }, [auth, state.teams]);
 
+
+  useEffect(() => {
+    if (!dbTeams) return;
+    if (didInitFromDb.current) return;
+
+    didInitFromDb.current = true;
+
+    setState(prev => ({
+      ...prev,
+      teams: [
+        {
+          ...prev.teams[0],
+          owner: dbTeams[0].name,
+          teamId: dbTeams[0].teamId,
+          captainKey: dbTeams[0].captainKey,
+        },
+        {
+          ...prev.teams[1],
+          owner: dbTeams[1].name,
+          teamId: dbTeams[1].teamId,
+          captainKey: dbTeams[1].captainKey,
+        },
+      ],
+    }));
+  }, [dbTeams]);
 
 
 
@@ -769,7 +813,7 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
       teams: state.teams.map(t => ({
         owner: t.owner,
         teamId: t.teamId,
-        starters: t.starters,
+        starters: t.active,
         bench: t.bench,
       })),
     });
@@ -785,7 +829,27 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
   } | null>(null);
 
 
-  
+
+  useEffect(() => {
+    if (!auth?.userId) return;
+    if (auth.teamId) return;
+    if (!state.teams.length) return;
+
+    const myTeam = state.teams.find(
+      t => t.ownerUserId === auth.userId
+    );
+
+    if (!myTeam) {
+      console.warn("No team found for user", auth.userId);
+      return;
+    }
+
+    setAuth(prev =>
+      prev ? { ...prev, teamId: myTeam.teamId } : prev
+    );
+  }, [auth?.userId, auth?.teamId, state.teams, setAuth]);
+
+
 
 
 
@@ -803,16 +867,21 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
     // 🚨 HARD STOP: never hydrate twice for the same week
     if (weeklyLineupLoadedRef.current) return;
 
-    // 🔒 LOCK IMMEDIATELY (before async work)
-    weeklyLineupLoadedRef.current = true;
-
     getWeeklyLineups(seasonId, state.week)
-      .then(res => {
-        const lineup = res?.lineup ?? [];
+      .then(lineup => {
+        // ✅ No lineup yet is a VALID state
+        if (!lineup || lineup.length === 0) {
+          console.log("ℹ️ No weekly lineup to hydrate", {
+            week: state.week,
+          });
+          weeklyLineupLoadedRef.current = true;
+          return;
+        }
+
         setState(prev =>
           applyWeeklyLineups(
             prev,
-            lineup,
+            lineup,     // ← already the array
             dbTeams,
             prev.pool
           )
@@ -820,10 +889,15 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
 
         console.log("💧 WEEKLY LINEUP HYDRATED FROM DB", {
           week: state.week,
-          teams: lineup.length,
+          rows: lineup.length,
         });
+
+        // 🔒 Lock AFTER successful hydration decision
+        weeklyLineupLoadedRef.current = true;
       })
       .catch(err => {
+        // ❌ Do NOT lock on error — allow retry
+        weeklyLineupLoadedRef.current = false;
         console.error("❌ Failed to hydrate weekly lineup", err);
       });
 
@@ -835,6 +909,7 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
     draftReady,
   ]);
 
+
   useEffect(() => {
     if (!auth) return;
     if (!seasonId || !dbTeams) return;
@@ -844,7 +919,14 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
 
     apiAuthFetch(`/api/scores/season/${seasonId}`)
       .then(async res => {
-        if (!res.ok) {
+
+
+
+        if (res.status === 404) {
+          console.info("ℹ️ No scores yet — waiting for games");
+          return null;
+        }
+        else if (!res.ok && res.status !== 404) {
           console.warn("⚠️ Failed to load scores", res.status);
           return {};
         }
@@ -876,21 +958,21 @@ export function AuthedApp({ auth }: { auth: AuthUser }) {
   }, [auth, seasonId, dbTeams]);
 
 
-useEffect(() => {
-  console.log("AUTH READY", auth);
-}, [auth]);
+  useEffect(() => {
+    console.log("AUTH READY", auth);
+  }, [auth]);
 
-useEffect(() => {
-  console.log("SEASON ID", seasonId);
-}, [seasonId]);
+  useEffect(() => {
+    console.log("SEASON ID", seasonId);
+  }, [seasonId]);
 
-useEffect(() => {
-  console.log("DB TEAMS", dbTeams);
-}, [dbTeams]);
+  useEffect(() => {
+    console.log("DB TEAMS", dbTeams);
+  }, [dbTeams]);
 
-useEffect(() => {
-  console.log("DB PLAYERS", dbPlayers.length);
-}, [dbPlayers]);
+  useEffect(() => {
+    console.log("DB PLAYERS", dbPlayers.length);
+  }, [dbPlayers]);
 
 
 
@@ -908,17 +990,24 @@ useEffect(() => {
     if (draftAppliedRef.current) return;
 
     getSeasonDraft(seasonId).then(draft => {
-      // ✅ Always mark draftReady after we check DB
-      console.log("📥 DRAFT rows", draft.length, draft.slice(0, 5));
+      // ✅ Draft system is ready whether draft exists or not
       setDraftReady(true);
 
-      if (!draft.length) {
-        draftAppliedRef.current = true; // optional, prevents refetch loop
+      if (!draft || draft.length === 0) {
+        console.log("ℹ️ No draft to apply");
+        draftAppliedRef.current = true;
         return;
       }
 
-      setState(prev => applyDraftFromDb(prev, draft, dbTeams, prev.pool));
+      console.log("📥 DRAFT rows", draft.length, draft.slice(0, 5));
+
+      setState(prev =>
+        applyDraftFromDb(prev, draft, dbTeams, prev.pool)
+      );
+
       draftAppliedRef.current = true;
+    }).catch(err => {
+      console.error("❌ Failed to load draft", err);
     });
 
   }, [seasonId, dbTeams, poolReady]);
@@ -937,9 +1026,9 @@ useEffect(() => {
 
         // ✅ Only seed actives ONCE, immediately after draft,
         // and ONLY if actives are empty
-        if (!hasActives && team.starters.length >= 4) {
-          team.activeByNight.MON = [...team.starters];
-          team.activeByNight.FRI = [...team.starters];
+        if (!hasActives && team.active.length >= 4) {
+          team.activeByNight.MON = [...team.active];
+          team.activeByNight.FRI = [...team.active];
           changed = true;
         }
       });
@@ -968,11 +1057,14 @@ useEffect(() => {
   }, [state.uploads, state.pool]);
 
 
-  const isDraftComplete = useMemo(() => {
-    return state.teams.every((t) =>
-      t.starters.length + t.bench.length === 6
-    );
-  }, [state.teams]);
+const isDraftComplete = useMemo(() => {
+  return state.teams.every(
+    (t) =>
+      Array.isArray(t.active) &&
+      Array.isArray(t.bench) &&
+      t.active.length + t.bench.length === 6
+  );
+}, [state.teams]);
 
   useEffect(() => {
     if (!dbPlayers.length) return;
@@ -1011,12 +1103,12 @@ useEffect(() => {
     console.log("Player keys:", state.pool.map(p => p.key));
   }, [state.pool]);
 
-  const isTaken = (key: string) =>
-    state.teams.some(
-      t =>
-        t.starters.includes(key) ||
-        t.bench.includes(key)
-    );
+const isTaken = (key: string) =>
+  state.teams.some(
+    t =>
+      Array.isArray(t.active) && t.active.includes(key) ||
+      Array.isArray(t.bench) && t.bench.includes(key)
+  );
 
 
   function applyDraftFromDb(
@@ -1064,11 +1156,11 @@ useEffect(() => {
 
       // ✅ Keep legacy fields working:
       // starters = 4 actives, bench = 2 bench
-      team.starters = roster6.slice(0, 4);
+      team.active = roster6.slice(0, 4);
       team.bench = roster6.slice(4, 6);
       // ✅ Only seed actives if empty (do not stomp weekly lineups)
-      if (!team.activeByNight?.MON?.length) team.activeByNight.MON = [...team.starters];
-      if (!team.activeByNight?.FRI?.length) team.activeByNight.FRI = [...team.starters];
+      if (!team.activeByNight?.MON?.length) team.activeByNight.MON = [...team.active];
+      if (!team.activeByNight?.FRI?.length) team.activeByNight.FRI = [...team.active];
 
 
       // Captain defaults if missing
@@ -1144,30 +1236,33 @@ useEffect(() => {
 
   // const [auth, setAuth] = useState<AuthState>({ teamIdx: null });
 
-  const isCommissioner = teamIdx === 0;
+  const isCommissioner = auth?.name.toLowerCase() === "martiny";
+
   const canEditTeam = (idx: 0 | 1) =>
     teamIdx === idx;
 
   function logout() {
     if (!confirm("Log out?")) return;
-    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem("fantasy_jwt");
+    localStorage.removeItem(LS_KEY);
+    window.location.reload();
   }
 
 
-useEffect(() => {
-  if (!auth) return;
+  useEffect(() => {
+    if (!auth) return;
 
-  console.log("👥 LOADING PLAYERS");
+    console.log("👥 LOADING PLAYERS");
 
-  getPlayers()
-    .then(players => {
-      console.log("✅ PLAYERS LOADED", players.length);
-      setDbPlayers(players);
-    })
-    .catch(err => {
-      console.error("❌ PLAYERS FAILED", err);
-    });
-}, [auth]);
+    getPlayers()
+      .then(players => {
+        console.log("✅ PLAYERS LOADED", players.length);
+        setDbPlayers(players);
+      })
+      .catch(err => {
+        console.error("❌ PLAYERS FAILED", err);
+      });
+  }, [auth]);
 
 
 
@@ -1207,24 +1302,6 @@ useEffect(() => {
       ];
   }, [teamIdx, state.teams]);
 
-
-
-
-
-  // useEffect(() => {
-  //   if (auth.teamIdx !== null) {
-  //     localStorage.setItem("fantasy-auth", String(auth.teamIdx));
-  //   }
-  // }, [auth]);
-
-
-  // useEffect(() => {
-  //   const saved = localStorage.getItem("fantasy-auth");
-  //   if (saved === "0" || saved === "1") {
-  //     setAuth({ teamIdx: Number(saved) as 0 | 1 });
-  //   }
-  // }, []);
-
   useEffect(() => {
     console.log("📦 UPLOADS", {
       mon: state.uploads.MON.length,
@@ -1242,7 +1319,7 @@ useEffect(() => {
         owner: t.owner,
         MON: t.activeByNight.MON,
         FRI: t.activeByNight.FRI,
-        starters: t.starters,
+        starters: t.active,
         bench: t.bench,
         processed: t.processed,
       })),
@@ -1268,7 +1345,7 @@ useEffect(() => {
           MON: [...t.activeByNight.MON],
           FRI: [...t.activeByNight.FRI],
         },
-        starters: [...t.starters],
+        starters: [...t.active],
         bench: [...t.bench],
         lockedByNight: {
           MON: [...t.lockedByNight.MON],
@@ -1393,7 +1470,7 @@ useEffect(() => {
         }
 
         // Always restore roster (draft roster must never change from uploads)
-        team.starters = frozenLineups[idx].starters;
+        team.active = frozenLineups[idx].starters;
         team.bench = frozenLineups[idx].bench;
       });
 
@@ -1401,7 +1478,7 @@ useEffect(() => {
         owner: t.owner,
         MON: t.activeByNight.MON,
         FRI: t.activeByNight.FRI,
-        starters: t.starters,
+        starters: t.active,
         bench: t.bench,
         processed: t.processed,
         lockedByNight: t.lockedByNight,
@@ -1487,7 +1564,7 @@ useEffect(() => {
         const dbTeam = dbTeams?.find(t => t.name === team.owner);
         if (!dbTeam) continue;
 
-        for (const key of [...team.starters, ...team.bench]) {
+        for (const key of [...team.active, ...team.bench]) {
           const player = state.pool.find(p => p.key === key);
 
           // playerId MUST exist to save
@@ -1517,7 +1594,7 @@ useEffect(() => {
 
 
 
-  function addStarter(idx: 0 | 1, key: string) {
+  function addActive(idx: 0 | 1, key: string) {
     if (idx !== teamIdx) return;
     if (isDraftComplete) return;
 
@@ -1525,11 +1602,11 @@ useEffect(() => {
       const teams = structuredClone(s.teams);
       const team = teams[teamIdx];
 
-      if (team.starters.length >= 4) return s;
+      if (team.active.length >= 4) return s;
       if (isTaken(key)) return s;
 
       // Add to starters
-      team.starters.push(key);
+      team.active.push(key);
 
       // Remove from bench if present
       team.bench = team.bench.filter(k => k !== key);
@@ -1542,7 +1619,7 @@ useEffect(() => {
   function assertNoCrossDuplicates(team: Team) {
     if (process.env.NODE_ENV !== "development") return;
 
-    const all = [...team.starters, ...team.bench];
+    const all = [...team.active, ...team.bench];
     const dupes = all.filter((k, i) => all.indexOf(k) !== i);
 
     if (dupes.length) {
@@ -1564,7 +1641,7 @@ useEffect(() => {
       team.bench.push(key);
 
       // Remove from starters
-      team.starters = team.starters.filter(k => k !== key);
+      team.active = team.active.filter(k => k !== key);
 
       // 🚫 Remove from BOTH nights (no team.active)
       team.activeByNight.MON = team.activeByNight.MON.filter(k => k !== key);
@@ -1583,7 +1660,7 @@ useEffect(() => {
       const team = teams[teamIdx];
 
       // Remove from starters
-      team.starters = team.starters.filter(k => k !== key);
+      team.active = team.active.filter(k => k !== key);
 
       // Remove from bench
       team.bench = team.bench.filter(k => k !== key);
@@ -1871,7 +1948,7 @@ useEffect(() => {
       // 🔥 REMOVE dropped player everywhere
       team.activeByNight[night] = active.filter(k => k !== dropKey);
       team.bench = team.bench.filter(k => k !== dropKey);
-      team.starters = team.starters.filter(k => k !== dropKey);
+      team.active = team.active.filter(k => k !== dropKey);
 
       // 🔁 ADD new player
       if (wasActive) {
@@ -1905,7 +1982,7 @@ useEffect(() => {
   }
 
 
-
+  console.log(`User Teamidx: ${teamIdx}`)
   return (
 
     <div style={{ padding: 16, fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif", maxWidth: 1200, margin: "0 auto" }}>
@@ -1927,7 +2004,8 @@ useEffect(() => {
         <div style={{ fontSize: 12, color: "#444" }}>
           Logged in as{" "}
           <b>
-            {teamIdx === 0 ? "Martiny (Commissioner)" : "Stufflebean"}
+            {auth?.name}
+            {isCommissioner && " (Commissioner)"}
           </b>
         </div>
 
@@ -1952,147 +2030,136 @@ useEffect(() => {
       <h2 style={{ marginTop: 8 }}>
         Week {state.week}
       </h2>
-      <p style={{ marginTop: 6, color: "#444" }}>
-        Upload Monday + Friday <b>Totals</b> CSVs. <b>Batting only</b>
-      </p>
-      <div style={{ opacity: isCommissioner ? 1 : 0.5 }}>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span><b>Monday totals</b></span>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              disabled={!isCommissioner}
-              onChange={async (e) => {
-                if (!isCommissioner) return;
+      {isCommissioner && (
+        <>
+          <p style={{ marginTop: 6, color: "#444" }}>
+            Upload Monday + Friday <b>Totals</b> CSVs. <b>Batting only</b>
+          </p>
+          <div style={{ opacity: isCommissioner ? 1 : 0.5 }}>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span><b>Monday totals</b></span>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  disabled={!isCommissioner}
+                  onChange={async (e) => {
+                    if (!isCommissioner) return;
 
-                const file = e.target.files?.[0];
-                if (!file) return;
+                    const file = e.target.files?.[0];
+                    if (!file) return;
 
-                await upload(file, "MON");
-                // processNight("MON");
-              }}
-            />
+                    await upload(file, "MON");
+                    // processNight("MON");
+                  }}
+                />
 
-            {!isCommissioner && (
-              <small style={{ color: "#999" }}>
-                Commissioner only
-              </small>
-            )}
 
-            <small style={{ color: "#666" }}>{state.sources.MON ? `Loaded: ${state.sources.MON}` : "Not loaded"}</small>
-          </label>
+                <small style={{ color: "#666" }}>{state.sources.MON ? `Loaded: ${state.sources.MON}` : "Not loaded"}</small>
+              </label>
 
-          <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span><b>Friday totals</b></span>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              disabled={!isCommissioner}
-              onChange={async (e) => {
-                if (!isCommissioner) return;
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span><b>Friday totals</b></span>
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  disabled={!isCommissioner}
+                  onChange={async (e) => {
+                    if (!isCommissioner) return;
 
-                const file = e.target.files?.[0];
-                if (!file) return;
+                    const file = e.target.files?.[0];
+                    if (!file) return;
 
-                await upload(file, "FRI");
-                // processNight("FRI");
-              }}
-            />
+                    await upload(file, "FRI");
+                    // processNight("FRI");
+                  }}
+                />
+                <small style={{ color: "#666" }}>{state.sources.FRI ? `Loaded: ${state.sources.FRI}` : "Not loaded"}</small>
+              </label>
 
-            {!isCommissioner && (
-              <small style={{ color: "#999" }}>
-                Commissioner only
-              </small>
-            )}
+              <h3 style={{ marginTop: 16 }}>Game Processing</h3>
 
-            <small style={{ color: "#666" }}>{state.sources.FRI ? `Loaded: ${state.sources.FRI}` : "Not loaded"}</small>
-          </label>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                <button
+                  disabled={state.teams.every(t => t.processed.MON)}
+                  onClick={() => processNightWithoutUpload("MON")}
+                >
+                  ▶️ Process Monday (no upload)
+                </button>
 
-          <h3 style={{ marginTop: 16 }}>Game Processing</h3>
+                <button
+                  disabled={state.teams.every(t => t.processed.FRI)}
+                  onClick={() => processNightWithoutUpload("FRI")}
+                >
+                  ▶️ Process Friday (no upload)
+                </button>
+              </div>
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button
-              disabled={!isCommissioner || state.teams.every(t => t.processed.MON)}
-              onClick={() => processNightWithoutUpload("MON")}
-            >
-              ▶️ Process Monday (no upload)
-            </button>
+              <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
+                Monday: {state.teams[0].processed.MON ? "✅ Processed" : "⏳ Pending"} ·
+                Friday: {state.teams[0].processed.FRI ? "✅ Processed" : "⏳ Pending"}
+              </div>
 
-            <button
-              disabled={!isCommissioner || state.teams.every(t => t.processed.FRI)}
-              onClick={() => processNightWithoutUpload("FRI")}
-            >
-              ▶️ Process Friday (no upload)
-            </button>
+              <button
+                onClick={resetAll}
+                style={{
+                  height: 40,
+                  padding: "0 12px",
+                  borderRadius: 10,
+                  border: "1px solid #bbb",
+                  background: isCommissioner ? "white" : "#eee",
+                  color: isCommissioner ? "#000" : "#999",
+                }}
+              >
+                Reset
+              </button>
+
+              {!isCommissioner && (
+                <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>
+                  Commissioner only
+                </div>
+              )}
+
+
+              <button
+                onClick={startNewWeek}
+                style={{
+                  marginTop: 12,
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "1px solid #111",
+                  background: "#111",
+                  color: "white",
+                }}
+              >
+                🔄 Start New Week
+              </button>
+
+
+              <div style={{ marginTop: 12 }}>
+                <NewSeasonButton />
+              </div>
+
+
+
+              <button
+                onClick={handleSaveDraft}
+                style={{
+                  padding: "10px 14px",
+                  borderRadius: 10,
+                  border: "1px solid #006400",
+                  background: "#006400",
+                  color: "white",
+                }}
+              >
+                💾 Save Draft
+              </button>
+            </div>
+
           </div>
 
-          <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
-            Monday: {state.teams[0].processed.MON ? "✅ Processed" : "⏳ Pending"} ·
-            Friday: {state.teams[0].processed.FRI ? "✅ Processed" : "⏳ Pending"}
-          </div>
-
-          <button
-            disabled={!isCommissioner}
-            onClick={resetAll}
-            style={{
-              height: 40,
-              padding: "0 12px",
-              borderRadius: 10,
-              border: "1px solid #bbb",
-              background: isCommissioner ? "white" : "#eee",
-              color: isCommissioner ? "#000" : "#999",
-            }}
-          >
-            Reset
-          </button>
-
-          {!isCommissioner && (
-            <div style={{ fontSize: 11, color: "#999", marginTop: 4 }}>
-              Commissioner only
-            </div>
-          )}
-
-          {isCommissioner && (
-            <button
-              onClick={startNewWeek}
-              style={{
-                marginTop: 12,
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid #111",
-                background: "#111",
-                color: "white",
-              }}
-            >
-              🔄 Start New Week
-            </button>
-          )}
-
-          {isCommissioner && (
-            <div style={{ marginTop: 12 }}>
-              <NewSeasonButton />
-            </div>
-          )}
-
-          {isCommissioner && (
-            <button
-              onClick={handleSaveDraft}
-              style={{
-                padding: "10px 14px",
-                borderRadius: 10,
-                border: "1px solid #006400",
-                background: "#006400",
-                color: "white",
-              }}
-            >
-              💾 Save Draft
-            </button>
-          )}
-
-
-        </div>
-      </div>
+        </>
+      )}
       <h2 style={{ marginTop: 18 }}>Draft Helpers</h2>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button
@@ -2194,7 +2261,7 @@ useEffect(() => {
         <DesktopPlayerPool
           pool={state.pool}
           isTaken={isTaken}
-          addStarter={addStarter}
+          addActive={addActive}
           setBench={setBench}
           teams={state.teams}
           isDraftComplete={isDraftComplete}
@@ -2204,7 +2271,7 @@ useEffect(() => {
         <MobilePlayerPool
           pool={state.pool}
           isTaken={isTaken}
-          addStarter={addStarter}
+          addActive={addActive}
           setBench={setBench}
           teams={state.teams}
           isDraftComplete={isDraftComplete}

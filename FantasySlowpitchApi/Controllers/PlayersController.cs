@@ -2,11 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using FantasySlowpitchApi.Data;
-
+using Microsoft.AspNetCore.Authorization;
 namespace FantasySlowpitchApi.Controllers;
 
+
+[AllowAnonymous]
 [ApiController]
-[Route("api/[controller]")]
+[Route("[controller]")]
 public class PlayersController : ControllerBase
 {
     private readonly AppDbContext _db;

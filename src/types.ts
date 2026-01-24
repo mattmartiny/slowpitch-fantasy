@@ -30,11 +30,13 @@ export type OrderedTeam = readonly [Team, 0 | 1];
  * - Captain scores once per night if active + played
  */
 export type Team = {
-  teamId:string;
-    owner: string;
-  starters: string[];
+  ownerUserId: string;
+  teamId: string;
+  owner: string;
+  active: string[];
   bench: string[];
 
+  captainKey: string; 
   // ✅ NEW (night-specific)
   activeByNight: {
     MON: string[];
@@ -65,7 +67,7 @@ export type Team = {
 export type PendingSwap = {
   teamIdx: 0 | 1;
   out: string | null;
-    night: "MON" | "FRI";
+  night: "MON" | "FRI";
   in: string | null;
 } | null;
 

@@ -5,7 +5,7 @@ type Props = {
     isTaken: (key: string) => boolean;
   isDraftComplete: boolean;
     teams: Team[];
-    addStarter: (idx: 0 | 1, key: string) => void;
+    addActive: (idx: 0 | 1, key: string) => void;
     setBench: (idx: 0 | 1, key: string) => void;
     availablePlayers: PlayerTotals[];
 };
@@ -14,7 +14,7 @@ export function DesktopPlayerPool({
 
     pool,
     isTaken,
-    addStarter,
+    addActive,
     setBench,
     teams,
     isDraftComplete,
@@ -91,14 +91,14 @@ export function DesktopPlayerPool({
                                 {[0, 1].map((teamIdx) => {
                                     const team = teams[teamIdx];
 
-                                    const starterFull = team.starters.length >= 3;
+                                    const starterFull = team.active.length >= 3;
                                     const benchFull = team.bench.length >= 2;
 
                                     return (
                                         <div key={teamIdx} style={{ marginBottom: 4 }}>
                                             <button
                                                 disabled={taken || starterFull}
-                                                onClick={() => addStarter(teamIdx as 0 | 1, p.key)}
+                                                onClick={() => addActive(teamIdx as 0 | 1, p.key)}
                                                 style={{ fontSize: 10, padding: "4px 6px" }}
                                             >
                                                 Starter → {team.owner}

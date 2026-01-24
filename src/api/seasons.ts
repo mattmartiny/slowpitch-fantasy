@@ -28,7 +28,7 @@ export async function getCurrentSeason() {
 
 
 export async function getSeasonTeams(seasonId: number) {
-  const res = await apiAuthFetch(`/api/seasons/${seasonId}/teams`);
+  const res = await apiAuthFetch(`api/seasons/${seasonId}/teams`);
   if (!res.ok) throw new Error("Failed to load teams");
   return res.json();
 }
@@ -38,7 +38,7 @@ export async function saveDraft(
   picks: { teamId: string; playerId: string }[]
 ) {
   const res = await apiAuthFetch(
-    `/api/seasons/${seasonId}/draft`,
+    `api/seasons/${seasonId}/draft`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -52,21 +52,29 @@ export async function saveDraft(
   }
 }
 
-
 export async function getSeasonDraft(seasonId: number) {
   const res = await apiAuthFetch(
     `/api/seasons/${seasonId}/draft`
   );
 
-  if (!res.ok) {
-    throw new Error("Failed to load draft");
+  // ✅ No draft yet (404 / empty)
+  if (res.status === 404) {
+    console.info("ℹ️ No draft found for season", seasonId);
+    return null;
   }
 
-  return res.json() as Promise<
-    { teamId: string; playerId: string }[]
-  >;
+  // ❌ Real failure
+  if (!res.ok) {
+    throw new Error(`Failed to load draft (${res.status})`);
+  }
 
+  const data = await res.json();
 
+  // Safety: empty table but endpoint exists
+  if (!Array.isArray(data) || data.length === 0) {
+    return [];
+  }
+
+  return data as { teamId: string; playerId: string }[];
 }
-
 

@@ -9,11 +9,14 @@ namespace FantasySlowpitchApi.Models
         [Key]
         [Column("teamId")]
         public Guid TeamId { get; set; }
-
-        [Column("seasonId")]
-        public int SeasonId { get; set; }
-
         [Column("name")]
         public string Name { get; set; } = "";
+
+        // 👇 THIS IS THE KEY
+        [Column("ownerUserId")]
+        public Guid OwnerUserId { get; set; }
+
+        [Column("captainKey")]
+        public string CaptainKey { get; set; } = "";
     }
 }

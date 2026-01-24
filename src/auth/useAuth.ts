@@ -2,11 +2,13 @@ import { TOKEN_KEY } from "./auth";
 import { useEffect, useState } from "react";
 
 export type AuthUser = {
+  userId: string;
   name: string;
   teamId: string | null;
 };
 
 type JwtPayload = {
+  sub?: string;              // ← userId
   name?: string;
   unique_name?: string;
   teamId?: string;
@@ -47,15 +49,18 @@ export function useAuth(authDirty?: number) {
       payload.unique_name ??
       null;
 
+    const userId = payload.sub ?? null;
+
     setAuth(
-      name
+      name && userId
         ? {
             name,
-            teamId: payload.teamId ?? null,
+            userId,
+            teamId: payload.teamId ?? null, // 🔒 ALWAYS resolved from DB
           }
         : null
     );
   }, [authDirty]);
 
-  return auth;
+  return { auth, setAuth };
 }

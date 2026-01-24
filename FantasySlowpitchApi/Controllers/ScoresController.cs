@@ -2,11 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using System.Data;
 using FantasySlowpitchApi.Data;
-
+using Microsoft.AspNetCore.Authorization;
 namespace FantasySlowpitchApi.Controllers;
 
+[Authorize]
 [ApiController]
-[Route("api/scores")]
+[Route("[controller]")]
 public class ScoresController : ControllerBase
 {
     private readonly IConfiguration _config;

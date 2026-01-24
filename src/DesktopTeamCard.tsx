@@ -88,21 +88,21 @@ export function DesktopTeamCard({
 
 
 
-//     function getDisplayBench(team: Team, night: "MON" | "FRI") {
-//   const captainKey = getCaptainKey(team);
-//   return getWeeklyBench(team, night).filter(k => k !== captainKey);
-// }
+    //     function getDisplayBench(team: Team, night: "MON" | "FRI") {
+    //   const captainKey = getCaptainKey(team);
+    //   return getWeeklyBench(team, night).filter(k => k !== captainKey);
+    // }
 
-const benchList = captainFirst(
-  getWeeklyBench(team, activeNight),
-  captainKey
-);
+    const benchList = captainFirst(
+        getWeeklyBench(team, activeNight),
+        captainKey
+    );
 
 
-const activeList = captainFirst(
-  team.activeByNight[activeNight],
-  captainKey
-);
+    const activeList = captainFirst(
+        team.activeByNight[activeNight],
+        captainKey
+    );
 
 
 
@@ -350,14 +350,15 @@ const activeList = captainFirst(
                                         <select id={`drop-${teamIdx}-${night}`} style={{ flex: 1 }}>
                                             <option value="">Drop…</option>
 
-                                            {team.starters
+                                            {(Array.isArray(team.active) ? team.active : [])
                                                 .map(k => playersByKey.get(k))
                                                 .filter((p): p is PlayerTotals => Boolean(p))
                                                 .map(p => (
                                                     <option key={p.key} value={p.key}>
                                                         {p.displayName}
                                                     </option>
-                                                ))}
+                                                ))
+                                            }
 
                                             {team.bench
                                                 .map((k) => {

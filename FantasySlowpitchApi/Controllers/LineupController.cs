@@ -3,8 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using FantasySlowpitchApi.Data;
+[Authorize]
 [ApiController]
-[Route("api/lineups")]
+[Route("api/[controller]")]
 public class LineupsController : ControllerBase
 {
     private readonly AppDbContext _db;

@@ -21,3 +21,5 @@ Thumbs.db
 # Secrets
 appsettings.Development.json
 appsettings.Production.json
+FantasySlowpitchApi/appsettings.json
+
