@@ -68,9 +68,11 @@ export function MobilePlayerPool({
               >
                 {[0, 1].map((teamIdx) => {
                   const team = teams[teamIdx];
-                  const starterFull = team.active.length >= 3;
-                  const benchFull = team.bench.length >= 2;
+                  const activeCount = Array.isArray(team.active) ? team.active.length : 0;
+                  const benchCount = Array.isArray(team.bench) ? team.bench.length : 0;
 
+                  const starterFull = activeCount >= 3;
+                  const benchFull = benchCount >= 2;
                   return (
                     <div key={teamIdx} style={{ flex: 1 }}>
                       <button

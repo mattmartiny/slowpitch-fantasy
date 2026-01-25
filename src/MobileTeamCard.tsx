@@ -12,6 +12,7 @@ type Props = {
     setPendingSwap: React.Dispatch<React.SetStateAction<PendingSwap | null>>;
     executeSwap: () => void;
 
+  isDraftComplete: boolean; 
     record: {
         wins: number;
         losses: number;
@@ -37,6 +38,7 @@ export function MobileTeamCard({
     isPlayerLocked,
     isNightLocked,
    LockIcon,
+   isDraftComplete
 }: Props) {
     const idx = teamIdx;
     const activeNight: "MON" | "FRI" =
@@ -53,10 +55,17 @@ export function MobileTeamCard({
     }
 
     // 🔒 SOURCE OF TRUTH
-    const activeList = captainFirst(team.activeByNight[activeNight]);
-    const benchList = captainFirst(
-        getWeeklyBench(team, activeNight)
-    );
+const activeList = captainFirst(
+  isDraftComplete
+    ? team.activeByNight[activeNight]
+    : team.active
+);
+
+const benchList = captainFirst(
+  isDraftComplete
+    ? getWeeklyBench(team, activeNight)
+    : team.bench
+);
 
     return (
         <div style={{ border: "2px solid #ddd", borderRadius: 14, padding: 12 }}>

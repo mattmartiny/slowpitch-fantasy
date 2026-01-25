@@ -66,6 +66,7 @@ export function DesktopTeamCard({
     isNightLocked,
     LockIcon,
     record,
+    isDraftComplete,
 }: Props) {
     function captainFirst(list: string[], captainKey: string) {
         return [...list].sort((a, b) => {
@@ -93,16 +94,20 @@ export function DesktopTeamCard({
     //   return getWeeklyBench(team, night).filter(k => k !== captainKey);
     // }
 
-    const benchList = captainFirst(
-        getWeeklyBench(team, activeNight),
-        captainKey
-    );
+const activeList = captainFirst(
+  isDraftComplete
+    ? team.activeByNight[activeNight]
+    : team.active,
+  captainKey
+);
 
+const benchList = captainFirst(
+  isDraftComplete
+    ? getWeeklyBench(team, activeNight)
+    : team.bench,
+  captainKey
+);
 
-    const activeList = captainFirst(
-        team.activeByNight[activeNight],
-        captainKey
-    );
 
 
 

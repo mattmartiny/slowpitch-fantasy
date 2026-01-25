@@ -350,26 +350,32 @@ function enforceRosterExclusivity(team: Team, phase: "draft" | "weekly") {
 function buildPoolFromDb(
   dbPlayers: { playerId: string; name: string }[]
 ): PlayerTotals[] {
-  return dbPlayers.map(p => ({
-    key: p.name.trim().toLowerCase(),
-    displayName: p.name,
-    playerId: p.playerId,
-    leagues: [],
-    PA: 0,
-    AB: 0,
-    _1B: 0,
-    _2B: 0,
-    _3B: 0,
-    HR: 0,
-    BB: 0,
-    R: 0,
-    RBI: 0,
-    ROE: 0,
-    OUT: 0,
-    points: 0,
-    ptsPerPA: 0,
-  }));
+  return dbPlayers
+    .filter(p => {
+      const name = p.name?.trim();
+      return Boolean(name);
+    })
+    .map(p => ({
+      key: p.name.trim().toLowerCase(),
+      displayName: p.name.trim(),
+      playerId: p.playerId,
+      leagues: [],
+      PA: 0,
+      AB: 0,
+      _1B: 0,
+      _2B: 0,
+      _3B: 0,
+      HR: 0,
+      BB: 0,
+      R: 0,
+      RBI: 0,
+      ROE: 0,
+      OUT: 0,
+      points: 0,
+      ptsPerPA: 0,
+    }));
 }
+
 
 function normalizeDbTeams(
   teams: { teamId: string; name: string; captainKey: string }[]
@@ -1024,11 +1030,13 @@ export function AuthedApp({
           team.activeByNight.MON.length > 0 ||
           team.activeByNight.FRI.length > 0;
 
+        const active = Array.isArray(team.active) ? team.active : [];
+
         // ✅ Only seed actives ONCE, immediately after draft,
         // and ONLY if actives are empty
-        if (!hasActives && team.active.length >= 4) {
-          team.activeByNight.MON = [...team.active];
-          team.activeByNight.FRI = [...team.active];
+        if (!hasActives && active.length >= 4) {
+          team.activeByNight.MON = [...active];
+          team.activeByNight.FRI = [...active];
           changed = true;
         }
       });
@@ -1036,8 +1044,6 @@ export function AuthedApp({
       return changed ? { ...prev, teams } : prev;
     });
   }, [draftReady, state.week]);
-
-
 
 
 
@@ -1057,14 +1063,14 @@ export function AuthedApp({
   }, [state.uploads, state.pool]);
 
 
-const isDraftComplete = useMemo(() => {
-  return state.teams.every(
-    (t) =>
-      Array.isArray(t.active) &&
-      Array.isArray(t.bench) &&
-      t.active.length + t.bench.length === 6
-  );
-}, [state.teams]);
+  const isDraftComplete = useMemo(() => {
+    return state.teams.every(
+      (t) =>
+        Array.isArray(t.active) &&
+        Array.isArray(t.bench) &&
+        t.active.length + t.bench.length === 6
+    );
+  }, [state.teams]);
 
   useEffect(() => {
     if (!dbPlayers.length) return;
@@ -1103,12 +1109,12 @@ const isDraftComplete = useMemo(() => {
     console.log("Player keys:", state.pool.map(p => p.key));
   }, [state.pool]);
 
-const isTaken = (key: string) =>
-  state.teams.some(
-    t =>
-      Array.isArray(t.active) && t.active.includes(key) ||
-      Array.isArray(t.bench) && t.bench.includes(key)
-  );
+  const isTaken = (key: string) =>
+    state.teams.some(
+      t =>
+        Array.isArray(t.active) && t.active.includes(key) ||
+        Array.isArray(t.bench) && t.bench.includes(key)
+    );
 
 
   function applyDraftFromDb(
@@ -1265,8 +1271,17 @@ const isTaken = (key: string) =>
   }, [auth]);
 
 
+  const availablePlayers = useMemo(
+    () =>
+      state.pool.filter(
+        p =>
+          p.key &&
+          p.displayName &&
+          !isTaken(p.key)
+      ),
+    [state.pool, state.teams]
+  );
 
-  const availablePlayers = useMemo(() => state.pool.filter((p) => !isTaken(p.key)), [state.pool, state.teams]);
 
   const teamTotals = useMemo(() => {
     return state.teams.map((team) => getWeeklyScore(team)) as [number, number];
@@ -1595,26 +1610,31 @@ const isTaken = (key: string) =>
 
 
   function addActive(idx: 0 | 1, key: string) {
-    if (idx !== teamIdx) return;
+    console.log("🔥 addActive FIRED", { idx, key });
+    if (teamIdx === null) return;
+
+    if (idx !== teamIdx && !(isCommissioner && !isDraftComplete)) return;
     if (isDraftComplete) return;
 
     setState(s => {
       const teams = structuredClone(s.teams);
       const team = teams[teamIdx];
 
-      if (team.active.length >= 4) return s;
-      if (isTaken(key)) return s;
+      console.log("🔥 addActive MUTATION", {
+        before: { active: team.active, bench: team.bench }
+      });
 
-      // Add to starters
+      team.bench = team.bench.filter(k => k !== key);
       team.active.push(key);
 
-      // Remove from bench if present
-      team.bench = team.bench.filter(k => k !== key);
-
+      console.log("🔥 addActive AFTER", {
+        after: { active: team.active, bench: team.bench }
+      });
 
       return { ...s, teams };
     });
   }
+
 
   function assertNoCrossDuplicates(team: Team) {
     if (process.env.NODE_ENV !== "development") return;
@@ -1626,31 +1646,38 @@ const isTaken = (key: string) =>
       console.warn("❌ DUPLICATE PLAYER ACROSS ROSTER", dupes, team);
     }
   }
-
   function setBench(idx: 0 | 1, key: string) {
-    if (idx !== teamIdx) return;
+    console.log("💥 setBench FIRED", { idx, key });
+    if (teamIdx === null) return;
+    if (idx !== teamIdx && !(isCommissioner && !isDraftComplete)) return;
     if (isDraftComplete) return;
 
     setState(s => {
       const teams = structuredClone(s.teams);
       const team = teams[teamIdx];
 
-      if (team.bench.length >= 2) return s;
-      if (isTaken(key)) return s;
+      const active = Array.isArray(team.active) ? team.active : [];
+      const bench = Array.isArray(team.bench) ? team.bench : [];
 
-      team.bench.push(key);
+      if (bench.length >= 2) return s;
 
-      // Remove from starters
-      team.active = team.active.filter(k => k !== key);
+      bench.push(key);
 
-      // 🚫 Remove from BOTH nights (no team.active)
-      team.activeByNight.MON = team.activeByNight.MON.filter(k => k !== key);
-      team.activeByNight.FRI = team.activeByNight.FRI.filter(k => k !== key);
+      // Remove from active
+      team.active = active.filter(k => k !== key);
+      team.bench = bench;
+
+      // 🚫 Remove from BOTH nights
+      team.activeByNight.MON =
+        (team.activeByNight.MON ?? []).filter(k => k !== key);
+      team.activeByNight.FRI =
+        (team.activeByNight.FRI ?? []).filter(k => k !== key);
+
       assertNoCrossDuplicates(team);
       return { ...s, teams };
-
     });
   }
+
 
 
 
@@ -2215,6 +2242,7 @@ const isTaken = (key: string) =>
               isPlayerLocked={isPlayerLocked}
               isNightLocked={isNightLocked}
               LockIcon={LockIcon}
+              isDraftComplete={isDraftComplete}
             />
           ) : (
             <DesktopTeamCard
