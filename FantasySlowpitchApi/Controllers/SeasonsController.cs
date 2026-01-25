@@ -4,6 +4,7 @@ using System.Data;
 using FantasySlowpitchApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authorization;
+using FantasySlowpitchApi.Models;
 
 namespace FantasySlowpitchApi.Controllers;
 
@@ -20,6 +21,35 @@ public class SeasonsController : ControllerBase
         _config = config;
     }
 
+ //[HttpPost("{seasonId}/draft")]
+public async Task<IActionResult> SaveDraft(
+    int seasonId,
+    [FromBody] List<SeasonDraft> picks
+)
+{
+    if (picks == null || picks.Count == 0)
+        return BadRequest("No draft picks provided");
+
+    // 🔁 Idempotent save — clear existing draft
+    var existing = _db.SeasonDrafts
+        .Where(d => d.SeasonId == seasonId);
+
+    _db.SeasonDrafts.RemoveRange(existing);
+
+    foreach (var pick in picks)
+    {
+        _db.SeasonDrafts.Add(new SeasonDraft
+        {
+            SeasonId = seasonId,
+            TeamId = pick.TeamId,
+            PlayerId = pick.PlayerId
+        });
+    }
+
+    await _db.SaveChangesAsync();
+
+    return Ok();
+}
 
     [HttpPost("new")]
     public async Task<IActionResult> StartNewSeason()
@@ -67,7 +97,7 @@ public class SeasonsController : ControllerBase
     [HttpGet("seasons/{seasonId}/draft")]
     public async Task<IActionResult> GetDraft(int seasonId)
     {
-        var draft = await _db.SeasonDraft
+        var draft = await _db.SeasonDrafts
             .Where(d => d.SeasonId == seasonId)
             .Select(d => new
             {

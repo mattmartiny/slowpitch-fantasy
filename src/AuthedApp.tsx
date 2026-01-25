@@ -1610,30 +1610,29 @@ export function AuthedApp({
 
 
   function addActive(idx: 0 | 1, key: string) {
-    console.log("🔥 addActive FIRED", { idx, key });
-    if (teamIdx === null) return;
+  if (teamIdx === null) return;
 
-    if (idx !== teamIdx && !(isCommissioner && !isDraftComplete)) return;
-    if (isDraftComplete) return;
+  const canEdit =
+    idx === teamIdx ||
+    (isCommissioner && !isDraftComplete);
 
-    setState(s => {
-      const teams = structuredClone(s.teams);
-      const team = teams[teamIdx];
+  if (!canEdit) return;
 
-      console.log("🔥 addActive MUTATION", {
-        before: { active: team.active, bench: team.bench }
-      });
+  if (isDraftComplete) return;
 
-      team.bench = team.bench.filter(k => k !== key);
-      team.active.push(key);
+  setState(s => {
+    const teams = structuredClone(s.teams);
+    const team = teams[idx]; // 👈 IMPORTANT: use idx, not teamIdx
 
-      console.log("🔥 addActive AFTER", {
-        after: { active: team.active, bench: team.bench }
-      });
+    if (team.active.length >= 4) return s;
+    if (isTaken(key)) return s;
 
-      return { ...s, teams };
-    });
-  }
+    team.active.push(key);
+    team.bench = team.bench.filter(k => k !== key);
+
+    return { ...s, teams };
+  });
+}
 
 
   function assertNoCrossDuplicates(team: Team) {
@@ -1646,37 +1645,38 @@ export function AuthedApp({
       console.warn("❌ DUPLICATE PLAYER ACROSS ROSTER", dupes, team);
     }
   }
-  function setBench(idx: 0 | 1, key: string) {
-    console.log("💥 setBench FIRED", { idx, key });
-    if (teamIdx === null) return;
-    if (idx !== teamIdx && !(isCommissioner && !isDraftComplete)) return;
-    if (isDraftComplete) return;
 
-    setState(s => {
-      const teams = structuredClone(s.teams);
-      const team = teams[teamIdx];
+  
+ function setBench(idx: 0 | 1, key: string) {
+  if (teamIdx === null) return;
 
-      const active = Array.isArray(team.active) ? team.active : [];
-      const bench = Array.isArray(team.bench) ? team.bench : [];
+  const canEdit =
+    idx === teamIdx ||
+    (isCommissioner && !isDraftComplete);
 
-      if (bench.length >= 2) return s;
+  if (!canEdit) return;
 
-      bench.push(key);
+  if (isDraftComplete) return;
 
-      // Remove from active
-      team.active = active.filter(k => k !== key);
-      team.bench = bench;
+  setState(s => {
+    const teams = structuredClone(s.teams);
+    const team = teams[idx];
 
-      // 🚫 Remove from BOTH nights
-      team.activeByNight.MON =
-        (team.activeByNight.MON ?? []).filter(k => k !== key);
-      team.activeByNight.FRI =
-        (team.activeByNight.FRI ?? []).filter(k => k !== key);
+    if (team.bench.length >= 2) return s;
+    if (isTaken(key)) return s;
 
-      assertNoCrossDuplicates(team);
-      return { ...s, teams };
-    });
-  }
+    team.bench.push(key);
+    team.active = team.active.filter(k => k !== key);
+
+    team.activeByNight.MON =
+      team.activeByNight.MON.filter(k => k !== key);
+    team.activeByNight.FRI =
+      team.activeByNight.FRI.filter(k => k !== key);
+
+    return { ...s, teams };
+  });
+}
+
 
 
 

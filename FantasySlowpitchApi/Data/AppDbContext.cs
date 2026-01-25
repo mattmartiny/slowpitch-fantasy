@@ -15,7 +15,9 @@ namespace FantasySlowpitchApi.Data
 
         public DbSet<Season> Seasons { get; set; } = null!;
         public DbSet<Team> Teams { get; set; } = null!;
-        public DbSet<SeasonDraft> SeasonDraft { get; set; }
+        public DbSet<SeasonDraft> SeasonDrafts { get; set; } = null!;
+
+
 
     }
 }
