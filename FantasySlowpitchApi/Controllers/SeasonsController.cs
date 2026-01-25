@@ -21,7 +21,7 @@ public class SeasonsController : ControllerBase
         _config = config;
     }
 
- //[HttpPost("{seasonId}/draft")]
+ [HttpPost("{seasonId}/draft")]
 public async Task<IActionResult> SaveDraft(
     int seasonId,
     [FromBody] List<SeasonDraft> picks
@@ -94,7 +94,7 @@ public async Task<IActionResult> SaveDraft(
     }
 
 
-    [HttpGet("seasons/{seasonId}/draft")]
+    [HttpGet("{seasonId}/draft")]
     public async Task<IActionResult> GetDraft(int seasonId)
     {
         var draft = await _db.SeasonDrafts

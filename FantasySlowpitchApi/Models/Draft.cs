@@ -6,8 +6,6 @@ namespace FantasySlowpitchApi.Models
     [Table("season_draft")]
     public class SeasonDraft
     {
-        [Key]
-        public int Id { get; set; }
 
         [Required]
         public int SeasonId { get; set; }

@@ -18,6 +18,12 @@ namespace FantasySlowpitchApi.Data
         public DbSet<SeasonDraft> SeasonDrafts { get; set; } = null!;
 
 
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<SeasonDraft>()
+                .HasKey(d => new { d.SeasonId, d.TeamId, d.PlayerId });
 
+            base.OnModelCreating(modelBuilder);
+        }
     }
 }
