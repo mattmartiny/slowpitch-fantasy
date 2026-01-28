@@ -1,8 +1,19 @@
 // DesktopTeamCard.tsx
 import type { Team, PlayerTotals } from "./types";
-import { getCaptainKey } from "./AuthedApp"
+import React from "react";
+import { maybeCaptainKey, getWeeklyBench } from "./AuthedApp";
+import { saveLineup } from "./api/lineups";
+function captainFirst(list: string[], captainKey: string | null) {
+    if (!captainKey) return list; // no captain yet → keep order
+    return [...list].sort((a, b) => {
+        if (a === captainKey) return -1;
+        if (b === captainKey) return 1;
+        return 0;
+    });
+}
 
-import { getWeeklyBench } from "./AuthedApp"; // or utils
+
+
 type PendingSwap = {
     teamIdx: 0 | 1;
     night: "MON" | "FRI";
@@ -10,107 +21,81 @@ type PendingSwap = {
     in: string | null;
 };
 
-
 type Props = {
     team: Team;
     teamIdx: 0 | 1;
     total: number;
-    playersByKey: Map<string, PlayerTotals>;
-    isDraftComplete: boolean;
-    availablePlayers: PlayerTotals[];
-    pendingSwap: {
-        teamIdx: 0 | 1;
-        out: string | null;
-        night: "MON" | "FRI";
-        in: string | null;
-    } | null;
-
     record: {
         wins: number;
         losses: number;
         ties: number;
     };
 
+    playersByKey: Map<string, PlayerTotals>;
+    availablePlayers: PlayerTotals[];
+    isDraftComplete: boolean;
 
-    setPendingSwap: React.Dispatch<any>;
+    pendingSwap: PendingSwap | null;
+    setPendingSwap: React.Dispatch<
+        React.SetStateAction<PendingSwap | null>
+    >;
     executeSwap: () => void;
 
     canEditTeam: (idx: 0 | 1) => boolean;
-    isPlayerLocked: (team: Team, key: string) => boolean;
-    isNightLocked: (team: Team, night: "MON" | "FRI") => boolean
+    isPlayerLocked: (team: Team, key: string, night: "MON" | "FRI") => boolean;
+    isNightLocked: (team: Team, night: "MON" | "FRI") => boolean;
 
     removeDrafted: (idx: 0 | 1, key: string) => void;
     doAddDrop: (
         idx: 0 | 1,
-        night: "MON" | "FRI",
         dropKey: string,
         addKey: string
     ) => void;
-
+    seasonId: number; // ✅ ADD THIS
     LockIcon: React.FC<{ locked: boolean; isCaptain?: boolean }>;
 };
 
 
-export function DesktopTeamCard({
-    team,
-    teamIdx,
-    playersByKey,
-    total,
-    doAddDrop,
-    canEditTeam,
-    pendingSwap,
-    availablePlayers,
-    setPendingSwap,
-    executeSwap,
-    isPlayerLocked,
-    isNightLocked,
-    LockIcon,
-    record,
-    isDraftComplete,
-}: Props) {
-    function captainFirst(list: string[], captainKey: string) {
-        return [...list].sort((a, b) => {
-            if (a === captainKey) return -1;
-            if (b === captainKey) return 1;
-            return 0;
-        });
-    }
+export function DesktopTeamCard(props: Props) {
+    const {
+        team,
+        teamIdx,
+        playersByKey,
+        total,
+        doAddDrop,
+        canEditTeam,
+        pendingSwap,
+        availablePlayers,
+        setPendingSwap,
+        executeSwap,
+        isPlayerLocked,
+        isNightLocked,
+        LockIcon,
+        record,
+        isDraftComplete,
+        seasonId
+    } = props;
 
-
-
-    console.log("🧩 pendingSwap in card", pendingSwap);
     const idx = teamIdx;
+
     const activeNight: "MON" | "FRI" =
         !team.processed.MON ? "MON" : "FRI";
 
-    // 🔑 TRUE actives from state (always length 3)
-    // 👀 UI-only active lineup (3 actives + captain)
-    const captainKey = getCaptainKey(team);
+    // ✅ captainKey is nullable during bootstrap/new season
+    const captainKey = maybeCaptainKey(team);
 
+    const baseActives = isDraftComplete
+        ? (team.activeByNight?.[activeNight] ?? [])
+        : (Array.isArray(team.active) ? team.active : []);
 
+    const baseBench = isDraftComplete
+        ? getWeeklyBench(team, activeNight)
+        : (Array.isArray(team.bench) ? team.bench : []);
 
-    //     function getDisplayBench(team: Team, night: "MON" | "FRI") {
-    //   const captainKey = getCaptainKey(team);
-    //   return getWeeklyBench(team, night).filter(k => k !== captainKey);
-    // }
+    const activeList = captainFirst(baseActives, captainKey);
+    const benchList = captainFirst(baseBench, captainKey);
 
-const activeList = captainFirst(
-  isDraftComplete
-    ? team.activeByNight[activeNight]
-    : team.active,
-  captainKey
-);
-
-const benchList = captainFirst(
-  isDraftComplete
-    ? getWeeklyBench(team, activeNight)
-    : team.bench,
-  captainKey
-);
-
-
-
-
+    
     console.log({
         owner: team.owner,
         night: activeNight,
@@ -118,10 +103,70 @@ const benchList = captainFirst(
         actives: activeList,
         bench: benchList,
     });
+    async function handleSaveLineup() {
+        const players: {
+            playerId: string;
+            slot: "active" | "bench";
+            isCaptain: boolean;
+        }[] = [];
 
+        // ACTIVE
+        for (const key of team.active) {
+            const p = playersByKey.get(key);
+            if (!p?.playerId) continue;
+
+            players.push({
+                playerId: p.playerId,
+                slot: "active",
+                isCaptain: key === team.captainKey
+            });
+        }
+
+        // BENCH
+        for (const key of team.bench) {
+            const p = playersByKey.get(key);
+            if (!p?.playerId) continue;
+
+            players.push({
+                playerId: p.playerId,
+                slot: "bench",
+                isCaptain: key === team.captainKey
+            });
+        }
+
+        await saveLineup({
+            seasonId: seasonId,
+            teamId: team.teamId,
+            players
+        });
+
+        alert("Lineup saved");
+    }
+
+    const editable = canEditTeam(teamIdx);
+    const [showAddDrop, setShowAddDrop] = React.useState(false);
+    const [dropKey, setDropKey] = React.useState("");
+    const [addKey, setAddKey] = React.useState("");
+
+
+
+    const rosterKeys = Array.from(
+  new Set([...(team.active ?? []), ...(team.bench ?? [])])
+);
+
+const droppable = rosterKeys.filter(
+  k => k !== team.captainKey
+);
+
+const addDropDisabled =
+  !editable ||
+  !isDraftComplete ||
+  team.seasonAddDropsUsed >= 2 ||
+  !dropKey ||
+  !addKey;
 
     return (
-        <div style={{ border: "2px solid #ddd", borderRadius: 14, padding: 12 }}>
+        <div style={{ border: "2px solid #ddd", borderRadius: 14, padding: 12, opacity: editable ? 1 : 0.6 }}>
             <div key={team.owner} style={{ border: "2px solid #ddd", borderRadius: 14, padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                     <h3 style={{ margin: 0 }}>
@@ -149,8 +194,9 @@ const benchList = captainFirst(
                         const p = playersByKey.get(k);
                         if (!p) return null;
 
-                        const isCaptain = k === captainKey;
-                        const locked = !isCaptain && isPlayerLocked(team, k);
+                        const isCaptain = !!captainKey && k === captainKey;
+                        const locked = !isCaptain && isPlayerLocked(team, k, activeNight);
+
                         const canSwapOut =
                             canEditTeam(idx) &&
                             !locked &&
@@ -186,21 +232,21 @@ const benchList = captainFirst(
 
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                     <div style={{ fontWeight: 600 }}>{p.points} pts</div>
-
-                                    <button
-                                        disabled={!canSwapOut}
-                                        onClick={() =>
-                                            setPendingSwap({
-                                                teamIdx: idx,
-                                                night: activeNight,
-                                                out: k,
-                                                in: null,
-                                            })
-                                        }
-                                    >
-                                        Swap Out
-                                    </button>
-
+                                    {canEditTeam(teamIdx) && (
+                                        <button
+                                            disabled={!canSwapOut}
+                                            onClick={() =>
+                                                setPendingSwap({
+                                                    teamIdx: idx,
+                                                    night: activeNight,
+                                                    out: k,
+                                                    in: null,
+                                                })
+                                            }
+                                        >
+                                            Swap Out
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         );
@@ -218,12 +264,12 @@ const benchList = captainFirst(
 
                         const isCaptain = k === captainKey;
 
-                        const lockedStyle = isPlayerLocked(team, k)
+                        const lockedStyle = isPlayerLocked(team, k, activeNight)
                             ? { opacity: 0.6, filter: "grayscale(30%)" }
                             : undefined;
                         const canSwapIn =
                             canEditTeam(idx) &&
-                            !isPlayerLocked(team, k) &&
+                            !isPlayerLocked(team, k, activeNight) &&
                             (
                                 !isNightLocked(team, activeNight) ||
                                 k === captainKey
@@ -254,7 +300,7 @@ const benchList = captainFirst(
                                     )}
 
                                     <LockIcon
-                                        locked={isPlayerLocked(team, k)}
+                                        locked={isPlayerLocked(team, k, activeNight)}
                                         isCaptain={isCaptain}
                                     />
                                 </div>
@@ -264,23 +310,33 @@ const benchList = captainFirst(
                                     <div style={{ fontWeight: 600 }}>
                                         {p.points} pts
                                     </div>
-                                    <button
-                                        disabled={!canSwapIn}
-                                        onClick={() =>
-                                            setPendingSwap((ps: PendingSwap | null) =>
-                                                ps ? { ...ps, night: activeNight, in: k } : null
-                                            )
-                                        }
-                                    >
-                                        Swap In
-                                    </button>
+                                    {canEditTeam(teamIdx) && (
+                                        <button
+                                            disabled={!canSwapIn}
+                                            onClick={() =>
+                                                setPendingSwap((ps: PendingSwap | null) =>
+                                                    ps ? { ...ps, night: activeNight, in: k } : null
+                                                )
+                                            }
+                                        >
+                                            Swap In
+                                        </button>
+                                    )}
                                 </div>
+
+
                             </div>
+
                         );
                     })}
                 </div>
 
-
+                <button
+                    disabled={!isDraftComplete || !canEditTeam(teamIdx)}
+                    onClick={handleSaveLineup}
+                >
+                    💾 Save Lineup
+                </button>
 
                 {pendingSwap &&
                     pendingSwap.teamIdx === teamIdx &&
@@ -332,82 +388,92 @@ const benchList = captainFirst(
 
 
                 {/* ADD / DROP */}
-                <div style={{
-                    marginTop: 16,
-                    paddingTop: 10,
-                    borderTop: "2px solid #eee"
-                }}>
-                    <h4>Add / Drop</h4>
+             {/* ADD / DROP (SEASON-BASED) */}
+{editable && isDraftComplete && (
+  <div
+    style={{
+      marginTop: 16,
+      padding: 12,
+      borderTop: "2px solid #eee",
+      background: "#fafafa",
+      borderRadius: 10,
+    }}
+  >
+    <div style={{ display: "flex", justifyContent: "space-between" }}>
+      <h4 style={{ margin: 0 }}>Add / Drop</h4>
+      <span style={{ fontSize: 12, color: "#666" }}>
+        {2 - team.seasonAddDropsUsed} remaining
+      </span>
+    </div>
 
-                    {(["MON", "FRI"] as const).map((night) => {
-                        const used = team.addDropUsed[night];
+    <button
+      style={{ marginTop: 6 }}
+      disabled={team.seasonAddDropsUsed >= 2}
+      onClick={() => setShowAddDrop(s => !s)}
+    >
+      {showAddDrop ? "Hide" : "Open"}
+    </button>
 
-                        return (
-                            <div key={night} style={{ marginBottom: 10 }}>
-                                <div style={{ fontSize: 12 }}>
-                                    <b>{night === "MON" ? "Monday" : "Friday"}:</b>{" "}
-                                    {used ? "❌ Used" : "✅ Available"}
-                                </div>
+    {showAddDrop && (
+      <div style={{ marginTop: 10 }}>
+        {/* DROP */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 12, color: "#444" }}>Drop</div>
+          <select
+            value={dropKey}
+            onChange={e => setDropKey(e.target.value)}
+            style={{ width: "100%" }}
+          >
+            <option value="">Select player</option>
+            {droppable.map(k => (
+              <option key={k} value={k}>
+                {playersByKey.get(k)?.displayName ?? k}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                                {!used && (
-                                    <div style={{ display: "flex", gap: 6 }}>
-                                        {/* DROP */}
-                                        <select id={`drop-${teamIdx}-${night}`} style={{ flex: 1 }}>
-                                            <option value="">Drop…</option>
+        {/* ADD */}
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 12, color: "#444" }}>Add</div>
+          <select
+            value={addKey}
+            onChange={e => setAddKey(e.target.value)}
+            style={{ width: "100%" }}
+          >
+            <option value="">Select player</option>
+            {availablePlayers.map(p => (
+              <option key={p.key} value={p.key}>
+                {p.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
 
-                                            {(Array.isArray(team.active) ? team.active : [])
-                                                .map(k => playersByKey.get(k))
-                                                .filter((p): p is PlayerTotals => Boolean(p))
-                                                .map(p => (
-                                                    <option key={p.key} value={p.key}>
-                                                        {p.displayName}
-                                                    </option>
-                                                ))
-                                            }
+        <button
+          disabled={addDropDisabled}
+          onClick={() => {
+            doAddDrop(teamIdx, dropKey, addKey);
+            setDropKey("");
+            setAddKey("");
+            setShowAddDrop(false);
+          }}
+          style={{
+            width: "100%",
+            padding: 10,
+            borderRadius: 8,
+            background: addDropDisabled ? "#ccc" : "#111",
+            color: "white",
+            fontWeight: 600,
+          }}
+        >
+          ✅ Confirm Add / Drop
+        </button>
+      </div>
+    )}
+  </div>
+)}
 
-                                            {team.bench
-                                                .map((k) => {
-                                                    const p = playersByKey.get(k);
-                                                    if (!p) return null;
-
-                                                    return (
-                                                        <option key={k} value={k}>
-                                                            {p.displayName} (bench)
-                                                        </option>
-                                                    );
-                                                })}
-
-
-                                        </select>
-
-                                        {/* ADD */}
-                                        <select id={`add-${teamIdx}-${night}`} style={{ flex: 1 }}>
-                                            <option value="">Add…</option>
-                                            {availablePlayers
-                                                .filter(p => p.leagues.includes(night))
-                                                .map(p => (
-                                                    <option key={p.key} value={p.key}>
-                                                        {p.displayName}
-                                                    </option>
-                                                ))}
-                                        </select>
-
-                                        <button
-                                            onClick={() => {
-                                                const drop = (document.getElementById(`drop-${teamIdx}-${night}`) as HTMLSelectElement)?.value;
-                                                const add = (document.getElementById(`add-${teamIdx}-${night}`) as HTMLSelectElement)?.value;
-                                                if (!drop || !add) return alert("Select both drop and add.");
-                                                doAddDrop(teamIdx as 0 | 1, night, drop, add);
-                                            }}
-                                        >
-                                            Execute
-                                        </button>
-                                    </div>
-                                )}
-                            </div>
-                        );
-                    })}
-                </div>
             </div>
         </div >
     );

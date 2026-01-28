@@ -36,7 +36,7 @@ export type Team = {
   active: string[];
   bench: string[];
 
-  captainKey: string; 
+  captainKey: string;
   // ✅ NEW (night-specific)
   activeByNight: {
     MON: string[];
@@ -55,10 +55,9 @@ export type Team = {
     FRI: boolean;
   };
 
-  addDropUsed: {
-    MON: boolean;
-    FRI: boolean;
-  };
+    seasonAddDropsUsed: number;
+
+
 
 
 
@@ -85,4 +84,13 @@ export type TeamState = {
     MON: string | null;
     FRI: string | null;
   };
+};
+export type LatestLineupResponse = {
+  lineupId: number;
+  createdAt: string;
+  players: {
+    playerId: string;
+    slot: "active" | "bench";
+    isCaptain: boolean;
+  }[];
 };

@@ -3,9 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using FantasySlowpitchApi.Data;
+
+
 [Authorize]
 [ApiController]
-[Route("api/[controller]")]
+[Route("lineups")]
 public class LineupsController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -16,27 +18,27 @@ public class LineupsController : ControllerBase
         _db = db;
         _config = config;
     }
+[HttpGet("{seasonId:int}/{week:int}")]
+public async Task<IActionResult> GetWeeklyLineups(
+    int seasonId,
+    int week)
+{
+    var rows = await _db.WeeklyLineups
+        .Where(l =>
+            l.SeasonId == seasonId &&
+            l.Week == week &&
+            l.Slot == "active"
+        )
+        .Select(l => new {
+            teamId = l.TeamId,
+            playerId = l.PlayerId,
+            night = l.Night
+        })
+        .ToListAsync();
 
-    [HttpGet("{seasonId:int}/{week:int}")]
-    public async Task<IActionResult> GetWeeklyLineups(int seasonId, int week)
-    {
-        var lineup = await _db.Database
-            .SqlQueryRaw<WeeklyLineupRow>(@"
-                SELECT teamId AS TeamId,
-                       playerId AS PlayerId,
-                       slot,
-                       night
-                FROM weekly_lineups
-                WHERE season_id = @seasonId
-                  AND week = @week
-            ",
-            new SqlParameter("@seasonId", seasonId),
-            new SqlParameter("@week", week)
-            )
-            .ToListAsync();
+    return Ok(rows);
+}
 
-        return Ok(new { lineup });
-    }
 
     [HttpPost("{seasonId:int}/{week:int}")]
     public async Task<IActionResult> SaveWeeklyLineup(
@@ -101,6 +103,60 @@ public class LineupsController : ControllerBase
             tx.Rollback();
             return StatusCode(500, ex.Message);
         }
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> SaveLineupSnapshot(
+        [FromBody] SaveLineupSnapshotDto dto
+    )
+    {
+        if (dto == null || dto.Players == null || dto.Players.Count == 0)
+            return BadRequest("Invalid lineup payload");
+
+        var lineup = new LineupSnapshot
+        {
+            SeasonId = dto.SeasonId,
+            TeamId = dto.TeamId,
+            CreatedAt = DateTime.UtcNow,
+        };
+
+        foreach (var p in dto.Players)
+        {
+            lineup.Players.Add(new LineupSnapshotPlayer
+            {
+                PlayerId = p.PlayerId,
+                Slot = p.Slot,
+                IsCaptain = p.IsCaptain
+            });
+        }
+
+        _db.LineupSnapshots.Add(lineup);
+        await _db.SaveChangesAsync();
+
+        return Ok(new
+        {
+            lineupId = lineup.LineupId,
+            saved = lineup.Players.Count
+        });
+    }
+
+
+
+
+
+    public class SaveLineupSnapshotDto
+    {
+        public int SeasonId { get; set; }
+        public Guid TeamId { get; set; }
+
+        public List<LineupSnapshotPlayerDto> Players { get; set; } = new();
+    }
+
+    public class LineupSnapshotPlayerDto
+    {
+        public Guid PlayerId { get; set; }
+        public string Slot { get; set; } = ""; // "active" | "bench"
+        public bool IsCaptain { get; set; }
     }
 
     public class WeeklyLineupDto
