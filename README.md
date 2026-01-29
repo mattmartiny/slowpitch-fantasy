@@ -1,4 +1,4 @@
-# Fantasy Slowpitch Applicaion 🥎
+# Fantasy Slowpitch Application 🥎
 
 ## Overview
 
