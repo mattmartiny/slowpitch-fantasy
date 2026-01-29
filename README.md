@@ -113,15 +113,15 @@ Scoring is designed to reflect **real offensive value** in slow-pitch softball w
 
 ### Official Scoring Constants
 
- # s1b: 1.0,   // Single
- # s2b: 1.5,   // Double
- # s3b: 2.5,   // Triple
- # shr: 3.0,   // Home Run
- # bb: 0.5,    // Walk
- # r: 1.0,     // Run Scored
- # rbi: 0.75,  // Run Batted In
- # roe: 1.0,   // Reached on Error
- # out: -0.5,  // Any recorded out
+ #### 1b: 1.0,   // Single
+ #### 2b: 1.5,   // Double
+ #### 3b: 2.5,   // Triple
+ #### hr: 3.0,   // Home Run
+ #### bb: 0.5,    // Walk
+ #### r: 1.0,     // Run Scored
+ #### rbi: 0.75,  // Run Batted In
+ #### roe: 1.0,   // Reached on Error
+ #### out: -0.5,  // Any recorded out
 
 ### Key Design Decisions
 
