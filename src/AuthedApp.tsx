@@ -171,29 +171,6 @@ function parseGameChangerTotals(text: string, league: LeagueTag): PlayerTotals[]
 
 
 
-// function attachPlayerIds(
-//   pool: PlayerTotals[],
-//   dbPlayers: { playerId: string; name: string }[]
-// ) {
-//   const map = new Map<string, string>(
-//     dbPlayers.map(p => [p.name.trim().toLowerCase(), p.playerId])
-//   );
-
-//   const merged = pool.map(p => ({
-//     ...p,
-//     playerId: map.get(p.displayName.trim().toLowerCase()) ?? ""
-//   }));
-
-//   // Optional: log missing matches once
-//   const missing = merged.filter(p => !p.playerId).map(p => p.displayName);
-//   if (missing.length) {
-//     console.warn("⚠️ Players missing DB match:", missing.slice(0, 20));
-//   }
-
-//   return merged;
-// }
-
-
 function mergePools(mon: PlayerTotals[], fri: PlayerTotals[]) {
   const map = new Map<string, PlayerTotals>();
 
@@ -257,7 +234,7 @@ function blankTeam(
   return {
     teamId: db?.teamId ?? "",
     owner: db?.name ?? "",
-    ownerUserId: "__UNASSIGNED__", // ⛑️ sentinel
+    ownerUserId: "__UNASSIGNED__", 
 
     active: [],
     bench: [],
@@ -308,40 +285,6 @@ function emptyState(): AppState {
   };
 }
 
-
-
-
-
-
-// function overlayStats(
-//   basePool: PlayerTotals[],
-//   statPool: PlayerTotals[]
-// ): PlayerTotals[] {
-//   const statsByKey = new Map(statPool.map(p => [p.key, p]));
-
-//   return basePool.map(p => {
-//     const stats = statsByKey.get(p.key);
-//     return stats
-//       ? {
-//         ...p,
-//         PA: stats.PA,
-//         AB: stats.AB,
-//         _1B: stats._1B,
-//         _2B: stats._2B,
-//         _3B: stats._3B,
-//         HR: stats.HR,
-//         BB: stats.BB,
-//         R: stats.R,
-//         RBI: stats.RBI,
-//         ROE: stats.ROE,
-//         OUT: stats.OUT,
-//         points: stats.points,
-//         ptsPerPA: stats.ptsPerPA,
-//         // 🚫 NO leagues here
-//       }
-//       : p;
-//   });
-// }
 type DbTeam = {
   teamId: string;
   name: string;
@@ -379,56 +322,6 @@ function buildPoolFromDb(
 }
 
 
-// function normalizeDbTeams(
-//   dbTeams: {
-//     teamId: string;
-//     name: string;
-//     ownerUserId: string;
-//     owner: string;
-//   }[],
-//   existingTeams: Team[]
-// ): Team[] {
-//   return dbTeams.map(dbTeam => {
-//     const existing = existingTeams.find(
-//       t => t.teamId === dbTeam.teamId
-//     );
-
-//     // ✅ Use existing roster if present
-//     if (existing) {
-//       return {
-//         ...existing,
-
-//         // 🔒 DB IS AUTHORITATIVE FOR IDENTITY
-//         teamId: dbTeam.teamId,
-//         ownerUserId: dbTeam.ownerUserId,
-//         owner: dbTeam.name,
-//         name: dbTeam.name,
-//       };
-//     }
-
-
-//     // 🆕 Fallback for brand new team
-//     return {
-//       ownerUserId: dbTeam.ownerUserId,
-//       owner: dbTeam.name,
-//       teamId: dbTeam.teamId,
-//       name: dbTeam.name,
-
-//       active: [],
-//       bench: [],
-//       captainKey: "",
-
-//       activeByNight: { MON: [], FRI: [] },
-//       lockedByNight: { MON: [], FRI: [] },
-//       locked: [],
-//       processed: { MON: false, FRI: false },
-//       addDropUsed: { MON: false, FRI: false },
-//     };
-//   });
-// }
-
-
-
 
 export function getCaptainKey(team: Team): string {
   if (!team.captainKey) {
@@ -441,47 +334,6 @@ export function maybeCaptainKey(team: Team): string | null {
   return team.captainKey || null;
 }
 
-// function ensureCaptainOnRoster(team: Team, phase: "draft" | "weekly") {
-//   if (phase === "weekly") {
-//     // 🚫 NEVER mutate roster during weekly play
-//     return;
-//   }
-
-//   const cap = getCaptainKey(team);
-//   const roster = new Set([...team.active, ...team.bench]);
-
-//   if (!roster.has(cap)) {
-//     if (team.bench.length < 2) team.bench.push(cap);
-//     else team.active.push(cap);
-//   }
-// }
-
-
-
-
-// function backfillBench(team: Team, phase: "draft" | "weekly") {
-//   if (phase === "weekly") return;
-
-//   const active = Array.isArray(team.active) ? team.active : [];
-//   const bench = Array.isArray(team.bench) ? team.bench : [];
-
-//   const roster = new Set([...active, ...bench]);
-
-//   const candidates = Array.from(
-//     new Set([
-//       ...(team.activeByNight?.MON ?? []),
-//       ...(team.activeByNight?.FRI ?? []),
-//     ])
-//   ).filter(k => !roster.has(k));
-
-//   while (bench.length < 2 && candidates.length) {
-//     bench.push(candidates.pop()!);
-//   }
-
-//   // 🔁 write back (important if active/bench were missing)
-//   team.active = active;
-//   team.bench = bench;
-// }
 
 
 export function AuthedApp({
@@ -493,7 +345,7 @@ export function AuthedApp({
     React.SetStateAction<AuthUser | null | undefined>
   >;
 }) {
-  // ✅ ALL your existing hooks go here
+  //  ALL your existing hooks go here
   // dbTeams, state, effects, everything
 
 
@@ -538,10 +390,10 @@ export function AuthedApp({
 
 
 
-      // 🔁 MIGRATION GUARD (for older saved states)
+      //  MIGRATION GUARD (for older saved states)
       parsed.teams.forEach((t) => {
 
-        // 🔁 MIGRATE lockedByNight
+        //  MIGRATE lockedByNight
         if (!t.lockedByNight) {
           t.lockedByNight = {
             MON: [],
@@ -609,19 +461,19 @@ export function AuthedApp({
     if (bootstrappedRef.current) return;
 
     bootstrappedRef.current = true;
-    console.log("🚀 BOOTSTRAP SEASON");
+    console.log("BOOTSTRAP SEASON");
 
     (async () => {
       try {
-        // 1️⃣ Load season
+        // 1️ Load season
         const season = await getCurrentSeason();
         setSeasonId(season.seasonId);
 
-        // 2️⃣ Load teams (identity only)
+        // 2️ Load teams (identity only)
         const teamsFromApi = await getSeasonTeams(season.seasonId);
         setDbTeams(teamsFromApi);
 
-        // 3️⃣ Load draft ONCE (authoritative roster)
+        // 3️ Load draft ONCE (authoritative roster)
         const draft = await getSeasonDraft(season.seasonId);
 
         setState(prev => {
@@ -714,7 +566,7 @@ export function AuthedApp({
           //   }
           // });
 
-          console.log("🌱 BOOTSTRAP FINAL", teams.map(t => ({
+          console.log(" BOOTSTRAP FINAL", teams.map(t => ({
             owner: t.owner,
             active: t.active,
             bench: t.bench,
@@ -731,42 +583,15 @@ export function AuthedApp({
         });
 
         setDraftReady(true);
-        console.log("✅ BOOTSTRAP COMPLETE");
+        console.log(" BOOTSTRAP COMPLETE");
       } catch (err) {
         bootstrappedRef.current = false;
-        console.error("❌ BOOTSTRAP FAILED", err);
+        console.error(" BOOTSTRAP FAILED", err);
       }
     })();
   }, [auth, state.pool.length]);
 
 
-
-
-  // function applyLineupSnapshotInPlace(
-  //   team: Team,
-  //   snapshot: LatestLineupResponse,
-  //   playersByKey: Map<string, PlayerTotals>
-  // ) {
-  //   const active: string[] = [];
-  //   const bench: string[] = [];
-  //   let captainKey = "";
-
-  //   for (const row of snapshot.players) {
-  //     const key = [...playersByKey.entries()]
-  //       .find(([, p]) => p.playerId === row.playerId)?.[0];
-
-  //     if (!key) continue;
-
-  //     if (row.slot === "active") active.push(key);
-  //     else bench.push(key);
-
-  //     if (row.isCaptain) captainKey = key;
-  //   }
-
-  //   team.active = active;
-  //   team.bench = bench;
-  //   team.captainKey = captainKey;
-  // }
 
   function applyWeeklyLineups(
     state: AppState,
@@ -781,7 +606,7 @@ export function AuthedApp({
   ): AppState {
     const teams = structuredClone(state.teams);
 
-    // 🟡 If NO DB rows at all → seed actives ONLY if UI empty & unprocessed
+    // If NO DB rows at all → seed actives ONLY if UI empty & unprocessed
     if (!rows.length) {
       teams.forEach(team => {
         ensureCaptainOnRoster(team);
@@ -851,7 +676,7 @@ export function AuthedApp({
         team.activeByNight[night] = [...actives];
       });
 
-      // 🚫 DO NOT TOUCH starters/bench here. Ever.
+      //  DO NOT TOUCH starters/bench here. Ever.
     });
 
 
@@ -863,7 +688,7 @@ export function AuthedApp({
       }
     });
 
-    console.log("✅ Weekly lineup hydrated (SAFE per-night)", teams.map(t => ({
+    console.log(" Weekly lineup hydrated (SAFE per-night)", teams.map(t => ({
       owner: t.owner,
       MON: t.activeByNight.MON,
       FRI: t.activeByNight.FRI,
@@ -905,7 +730,7 @@ export function AuthedApp({
 
     if (res instanceof Response && !res.ok) {
       const text = await res.text().catch(() => "");
-      console.error("❌ saveWeeklyLineupFromTeam failed", {
+      console.error(" saveWeeklyLineupFromTeam failed", {
         status: res.status,
         night,
         activeKeys,
@@ -913,7 +738,7 @@ export function AuthedApp({
         text,
       });
     } else {
-      console.log("✅ saved weekly lineup to DB", {
+      console.log(" saved weekly lineup to DB", {
         week,
         night,
         teamId: dbTeamId,
@@ -941,44 +766,13 @@ export function AuthedApp({
       return idx === 0 || idx === 1 ? idx : null;
     }
 
-    // 🚫 NO NAME FALLBACK — WRONG TEAM IS WORSE THAN NO TEAM
+    // NO NAME FALLBACK — WRONG TEAM IS WORSE THAN NO TEAM
     return null;
   }, [auth, state.teams]);
 
 
-  // useEffect(() => {
-  //   if (!dbTeams) return;
-  //   if (didInitFromDb.current) return;
-
-  //   didInitFromDb.current = true;
-
-  //   setState(prev => ({
-  //     ...prev,
-  //     owners: [dbTeams[0].name, dbTeams[1].name], // 👈 ADD THIS
-  //     teams: [
-  //       {
-  //         ...prev.teams[0],
-  //         owner: dbTeams[0].name,
-  //         teamId: dbTeams[0].teamId,
-  //         captainKey: dbTeams[0].captainKey,
-  //         ownerUserId: dbTeams[0].ownerUserId,
-  //       },
-  //       {
-  //         ...prev.teams[1],
-  //         owner: dbTeams[1].name,
-  //         teamId: dbTeams[1].teamId,
-  //         captainKey: dbTeams[1].captainKey,
-  //             ownerUserId: dbTeams[1].ownerUserId,
-  //       },
-  //     ],
-  //   }));
-  // }, [dbTeams]);
-
-
-
-
   useEffect(() => {
-    console.log("🧭 AUTH / TEAM IDX", {
+    console.log("AUTH / TEAM IDX", {
       auth,
       teamIdx,
       teams: state.teams.map(t => ({
@@ -1022,17 +816,6 @@ export function AuthedApp({
 
 
 
-
-
-
-
-  // // ✅ MUST COME FIRST
-  // useEffect(() => {
-  //   draftAppliedRef.current = false;
-  //   weeklyLineupLoadedRef.current = false;
-  // }, [seasonId]);
-
-
   const poolReady = state.pool.length > 0;
 
 
@@ -1043,7 +826,7 @@ export function AuthedApp({
     if (!draftReady) return;
     if (!state.teamsHydrated) return;
 
-    // 🚨 Only block duplicate calls in THIS render cycle
+    //  Only block duplicate calls in THIS render cycle
     if (weeklyLineupLoadedRef.current) return;
 
     weeklyLineupLoadedRef.current = true;
@@ -1104,11 +887,11 @@ export function AuthedApp({
 
 
         if (res.status === 404) {
-          console.info("ℹ️ No scores yet — waiting for games");
+          console.info("ℹ No scores yet — waiting for games");
           return null;
         }
         else if (!res.ok && res.status !== 404) {
-          console.warn("⚠️ Failed to load scores", res.status);
+          console.warn(" Failed to load scores", res.status);
           return {};
         }
         return res.json();
@@ -1134,12 +917,12 @@ export function AuthedApp({
         setState(s => ({ ...s, history }));
       })
       .catch(err => {
-        console.error("❌ Error loading weekly scores", err);
+        console.error(" Error loading weekly scores", err);
       });
   }, [auth, seasonId, dbTeams]);
 
   useEffect(() => {
-    console.log("🔎 teamsHydrated", {
+    console.log(" teamsHydrated", {
       teamsHydrated: state.teamsHydrated,
       team0Active: state.teams[0]?.active,
       team1Active: state.teams[1]?.active,
@@ -1207,7 +990,7 @@ export function AuthedApp({
       }
 
 
-      console.log("🟢 Initializing pool from DB players");
+      console.log(" Initializing pool from DB players");
 
       return {
         ...prev,
@@ -1226,7 +1009,7 @@ export function AuthedApp({
     );
 
     if (invalid) {
-      console.warn("🚫 Prevented saving broken roster state");
+      console.warn(" Prevented saving broken roster state");
       return;
     }
 
@@ -1250,83 +1033,13 @@ export function AuthedApp({
     );
 
 
-  // function applyDraftFromDb(
-  //   state: AppState,
-  //   draft: { teamId: string; playerId: string }[],
-  //   pool: PlayerTotals[]
-  // ): AppState {
-  //   // 🚫 Nothing to apply
-  //   if (!draft || draft.length === 0) return state;
-
-  //   // Map DB teamId → team index (0 | 1)
-  //   const teamIndexById = new Map<string, 0 | 1>();
-  //   state.teams.forEach((t, idx) => {
-  //     teamIndexById.set(t.teamId, idx as 0 | 1);
-  //   });
-
-  //   // Map DB playerId → fantasy player key
-  //   const keyByPlayerId = new Map<string, string>();
-  //   pool.forEach(p => {
-  //     if (p.playerId && p.key) {
-  //       keyByPlayerId.set(p.playerId, p.key);
-  //     }
-  //   });
-
-  //   // Collect drafted players per team
-  //   const ownedBy: [string[], string[]] = [[], []];
-
-  //   // 1️⃣ BUILD ownedBy (authoritative from DB)
-  //   for (const pick of draft) {
-  //     const teamIdx = teamIndexById.get(pick.teamId);
-  //     const key = keyByPlayerId.get(pick.playerId);
-
-  //     if (teamIdx === undefined || !key) continue;
-
-  //     ownedBy[teamIdx].push(key);
-  //   }
-
-  //   // 2️⃣ 🔒 DUPLICATE GUARD — NO player may exist on both teams
-  //   const all = [...ownedBy[0], ...ownedBy[1]];
-  //   if (new Set(all).size !== all.length) {
-  //     console.error("❌ Draft contains duplicate players across teams", ownedBy);
-  //     return state;
-  //   }
-
-  //   // 3️⃣ 🔐 COMPLETENESS GUARD — must be exactly 6 per team
-  //   if (ownedBy[0].length !== 6 || ownedBy[1].length !== 6) {
-  //     console.warn("🚫 Draft hydration aborted — incomplete draft", {
-  //       team0: ownedBy[0].length,
-  //       team1: ownedBy[1].length,
-  //     });
-  //     return state;
-  //   }
-
-  //   // 4️⃣ APPLY draft to teams (AUTHORITATIVE)
-  //   const teams = structuredClone(state.teams);
-
-  //   teams.forEach((team, idx) => {
-  //     team.active = ownedBy[idx].slice(0, 4);
-  //     team.bench = ownedBy[idx].slice(4, 6);
-  //     ensureCaptainOnRoster(team);
-  //     // 🚫 DO NOT touch:
-  //     // - activeByNight
-  //     // - locked
-  //     // - processed
-  //     // - addDropUsed
-  //   });
-
-  //   return { ...state, teams };
-  // }
-
-
-
   function getWeeklyScore(team: Team): number {
     let total = 0;
 
     (["MON", "FRI"] as const).forEach(night => {
       if (!team.processed[night]) return;
 
-      // ✅ ONLY active players score
+      //  ONLY active players score
       const actives = team.activeByNight[night];
 
       actives.forEach(key => {
@@ -1345,7 +1058,7 @@ export function AuthedApp({
 
 
   useEffect(() => {
-    console.log("🟢 ACTIVES", state.teams.map(t => ({
+    console.log(" ACTIVES", state.teams.map(t => ({
       owner: t.owner,
       MON: t.activeByNight.MON,
       FRI: t.activeByNight.FRI,
@@ -1382,11 +1095,11 @@ export function AuthedApp({
 
     getPlayers()
       .then(players => {
-        console.log("✅ PLAYERS LOADED", players.length);
+        console.log("PLAYERS LOADED", players.length);
         setDbPlayers(players);
       })
       .catch(err => {
-        console.error("❌ PLAYERS FAILED", err);
+        console.error("PLAYERS FAILED", err);
       });
   }, [auth]);
 
@@ -1419,7 +1132,7 @@ export function AuthedApp({
 
 
 
-  // ⛑️ Guard: teams not ready yet
+  // Guard: teams not ready yet
   const orderedTeams = useMemo<OrderedTeam[]>(() => {
     if (!state.teams || state.teams.length < 2) {
       return [];
@@ -1444,7 +1157,7 @@ export function AuthedApp({
 
 
   useEffect(() => {
-    console.log("📦 UPLOADS", {
+    console.log("UPLOADS", {
       mon: state.uploads.MON.length,
       fri: state.uploads.FRI.length,
     });
@@ -1499,7 +1212,7 @@ export function AuthedApp({
       }));
 
       /* -------------------------
-         1️⃣ APPLY STATS ONLY
+         1️. APPLY STATS ONLY
          ------------------------- */
 
       const uploads =
@@ -1548,7 +1261,7 @@ export function AuthedApp({
       });
 
       /* -------------------------
-         2️⃣ LOCK PLAYERS WHO PLAYED
+         2️. LOCK PLAYERS WHO PLAYED
          ------------------------- */
 
       const teams = structuredClone(prev.teams);
@@ -1582,7 +1295,7 @@ export function AuthedApp({
       });
 
       /* -------------------------
-         2.5️⃣ FIRST UPLOAD SYNC RULE
+         3. FIRST UPLOAD SYNC RULE
          - If this is the FIRST upload of the week for a team,
            force MON and FRI actives to match the uploaded night’s lineup.
          ------------------------- */
@@ -1600,7 +1313,7 @@ export function AuthedApp({
       });
 
       /* -------------------------
-         3️⃣ RESTORE LINEUP INTENT
+         4. RESTORE LINEUP INTENT
          - IMPORTANT: do NOT overwrite actives on FIRST upload,
            or you undo the sync above.
          ------------------------- */
@@ -1620,7 +1333,7 @@ export function AuthedApp({
         team.bench = frozenLineups[idx].bench;
       });
 
-      console.log("✅ POST UPLOAD STATE", teams.map(t => ({
+      console.log("POST UPLOAD STATE", teams.map(t => ({
         owner: t.owner,
         MON: t.activeByNight.MON,
         FRI: t.activeByNight.FRI,
@@ -1698,7 +1411,7 @@ export function AuthedApp({
 
     if (!confirm("Save current draft to database?")) return;
 
-    // 🔒 Prevent autosave /state from firing
+    //  Prevent autosave /state from firing
     isSavingDraft.current = true;
 
     try {
@@ -1754,7 +1467,7 @@ export function AuthedApp({
 
     setState(s => {
       const teams = structuredClone(s.teams);
-      const team = teams[idx]; // 👈 IMPORTANT: use idx, not teamIdx
+      const team = teams[idx]; // IMPORTANT: use idx, not teamIdx
 
       if (team.active.length >= 4) return s;
       if (isTaken(key)) return s;
@@ -1774,7 +1487,7 @@ export function AuthedApp({
     const dupes = all.filter((k, i) => all.indexOf(k) !== i);
 
     if (dupes.length) {
-      console.warn("❌ DUPLICATE PLAYER ACROSS ROSTER", dupes, team);
+      console.warn("DUPLICATE PLAYER ACROSS ROSTER", dupes, team);
     }
   }
 
@@ -1824,7 +1537,7 @@ export function AuthedApp({
       // Remove from bench
       team.bench = team.bench.filter(k => k !== key);
 
-      // 🚫 Remove from BOTH nights
+      // Remove from BOTH nights
       team.activeByNight.MON = team.activeByNight.MON.filter(k => k !== key);
       team.activeByNight.FRI = team.activeByNight.FRI.filter(k => k !== key);
       assertNoCrossDuplicates(team);
@@ -1848,7 +1561,7 @@ export function AuthedApp({
 
     if (!confirm("Finalize this week and start a new one?")) return;
 
-    // 1️⃣ Save week result locally (UI history)
+    // 1️ Save week result locally (UI history)
     setState(s => {
       const historyEntry: WeekResult = {
         week: s.week,
@@ -1887,16 +1600,16 @@ export function AuthedApp({
       }
     );
 
-    // 2️⃣ Tell backend to advance the week (authoritative)
+    // 2️ Tell backend to advance the week (authoritative)
     await apiAuthFetch(
       `/api/seasons/${seasonId}/advance-week`,
       { method: "POST" }
     );
 
-    // 3️⃣ Re-fetch authoritative season state
+    // 3️ Re-fetch authoritative season state
     const season = await getCurrentSeason();
 
-    // 4️⃣ Reset weekly-only state (STRICT tuple-safe reset)
+    // 4️ Reset weekly-only state (STRICT tuple-safe reset)
     setState(s => {
       const teams: [Team, Team] = [
         {
@@ -1966,7 +1679,7 @@ export function AuthedApp({
         : [night];
 
     // Pre-validation
-    // 1️⃣ VALIDATION (once)
+    // 1️ VALIDATION (once)
     for (const n of nightsToApply) {
       if (team.processed[n] && out !== captainKey && inKey !== captainKey) {
         alert("Only the captain may be swapped after games are processed.");
@@ -1979,7 +1692,7 @@ export function AuthedApp({
       }
     }
 
-    // 2️⃣ COMPUTE next state (once)
+    // 2️ COMPUTE next state (once)
     const nextActiveByNight: Record<"MON" | "FRI", string[]> = {
       MON: [...team.activeByNight.MON],
       FRI: [...team.activeByNight.FRI],
@@ -2007,7 +1720,7 @@ export function AuthedApp({
 
 
 
-    // 3️⃣ UPDATE UI (once)
+    // 3️3 UPDATE UI (once)
     setState(prev => {
       const teams = structuredClone(prev.teams);
       const t = teams[teamIdx];
@@ -2023,7 +1736,7 @@ export function AuthedApp({
 
     setPendingSwap(null);
 
-    // 4️⃣ SAVE TO DB (per night)
+    // 4️ SAVE TO DB (per night)
     for (const n of nightsToApply) {
       await saveWeeklyLineupFromTeam({
         seasonId,
@@ -2039,67 +1752,11 @@ export function AuthedApp({
 
 
 
-
-
-
-
-
-
-  // function Login({
-  //   onLogin,
-  // }: {
-  //   onLogin: (teamIdx: 0 | 1) => void;
-  // }) {
-  //   return (
-  //     <div style={{ maxWidth: 320, margin: "40px auto" }}>
-  //       <h2>Team Login</h2>
-
-  //       <select id="team" style={{ width: "100%" }}>
-  //         <option value="">Select team</option>
-  //         <option value="0">Martiny</option>
-  //         <option value="1">Stufflebean</option>
-  //       </select>
-
-  //       <input
-  //         type="password"
-  //         placeholder="PIN"
-  //         id="pin"
-  //         style={{ width: "100%", marginTop: 8 }}
-  //       />
-
-  //       <button
-  //         style={{ marginTop: 12, width: "100%" }}
-  //         onClick={() => {
-  //           const teamIdx = Number(
-  //             (document.getElementById("team") as HTMLSelectElement).value
-  //           ) as 0 | 1;
-
-  //           const pin = (document.getElementById("pin") as HTMLInputElement).value;
-
-  //           if (TEAM_PINS[teamIdx] === pin) {
-  //             onLogin(teamIdx);
-  //           } else {
-  //             alert("Invalid PIN");
-  //           }
-  //         }}
-  //       >
-  //         Login
-  //       </button>
-  //     </div>
-  //   );
-  // }
   function isPlayerLocked(team: Team, key: string, night: "MON" | "FRI") {
     return team.lockedByNight[night].includes(key);
   }
 
 
-
-
-
-  function bestOf(filterFn: (p: PlayerTotals) => boolean) {
-    const avail = availablePlayers.filter(filterFn);
-    return avail.length ? avail[0] : null;
-  }
 
   function doAddDrop(
     teamIdx: 0 | 1,
@@ -2110,13 +1767,13 @@ export function AuthedApp({
       const teams: [Team, Team] = structuredClone(s.teams);
       const team = teams[teamIdx];
 
-      // 🔒 Max 2 per season
+      // Max 2 per season
       if (team.seasonAddDropsUsed >= 2) {
         alert("You have used all 2 add/drops for the season.");
         return s;
       }
 
-      // 🚫 Captain guard
+      // Captain guard
       if (dropKey === getCaptainKey(team)) {
         alert("You cannot drop the captain.");
         return s;
@@ -2127,13 +1784,13 @@ export function AuthedApp({
 
       if (!dropPlayer || !addPlayer) return s;
 
-      // 🔥 REMOVE dropped player everywhere
+      // REMOVE dropped player everywhere
       team.active = team.active.filter(k => k !== dropKey);
       team.bench = team.bench.filter(k => k !== dropKey);
       team.activeByNight.MON = team.activeByNight.MON.filter(k => k !== dropKey);
       team.activeByNight.FRI = team.activeByNight.FRI.filter(k => k !== dropKey);
 
-      // 🔁 ADD new player
+      // ADD new player
       // Prefer bench if room, else active
       if (team.bench.length < 2) {
         team.bench.push(addKey);
@@ -2159,7 +1816,7 @@ export function AuthedApp({
   }
 
   useEffect(() => {
-    console.log("🧪 appReady debug", {
+    console.log(" appReady debug", {
       auth: !!auth,
       seasonId,
       dbTeamsLoaded: dbTeams !== null,
@@ -2204,7 +1861,7 @@ export function AuthedApp({
 
   if (!appReady) {
     {
-      console.log("🧪 appReady breakdown", {
+      console.log("appReady breakdown", {
         auth: Boolean(auth),
         seasonId,
         dbTeamsLoaded: Boolean(dbTeams),
@@ -2392,36 +2049,7 @@ export function AuthedApp({
 
         </>
       )}
-      <h2 style={{ marginTop: 18 }}>Draft Helpers</h2>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button
-          onClick={() => {
-            const p = bestOf(() => true);
-            alert(p ? `Best Available: ${p.displayName} (${p.points.toFixed(2)} pts)` : "No available players");
-          }}
-          style={{ padding: 10, borderRadius: 10, border: "1px solid #111", background: "#111", color: "white" }}
-        >
-          Best Available
-        </button>
-        <button
-          onClick={() => {
-            const p = bestOf((x) => x.leagues.includes("MON"));
-            alert(p ? `Best MON: ${p.displayName} (${p.points.toFixed(2)} pts)` : "No MON players available");
-          }}
-          style={{ padding: 10, borderRadius: 10, border: "1px solid #bbb", background: "white" }}
-        >
-          Best Monday
-        </button>
-        <button
-          onClick={() => {
-            const p = bestOf((x) => x.leagues.includes("FRI"));
-            alert(p ? `Best FRI: ${p.displayName} (${p.points.toFixed(2)} pts)` : "No FRI players available");
-          }}
-          style={{ padding: 10, borderRadius: 10, border: "1px solid #bbb", background: "white" }}
-        >
-          Best Friday
-        </button>
-      </div>
+      
 
       <h2 style={{ marginTop: 18 }}>Teams</h2>
       <div
@@ -2479,7 +2107,7 @@ export function AuthedApp({
 
       </div>
       <button onClick={() => setShowHistory(s => !s)}>
-        📊 {showHistory ? "Hide" : "Show"} Weekly History
+         {showHistory ? "Hide" : "Show"} Weekly History
       </button>
 
       {showHistory && (

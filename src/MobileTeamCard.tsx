@@ -155,7 +155,7 @@ export function MobileTeamCard({
 
             {readOnly && (
                 <div style={{ fontSize: 12, color: "#777", marginBottom: 6 }}>
-                    👀 Viewing as Visitor (read-only)
+                    Viewing as Visitor (read-only)
                 </div>
             )}
 

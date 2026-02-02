@@ -4,7 +4,7 @@ import React from "react";
 import { maybeCaptainKey, getWeeklyBench } from "./AuthedApp";
 import { saveLineup } from "./api/lineups";
 function captainFirst(list: string[], captainKey: string | null) {
-    if (!captainKey) return list; // no captain yet → keep order
+    if (!captainKey) return list;
     return [...list].sort((a, b) => {
         if (a === captainKey) return -1;
         if (b === captainKey) return 1;
@@ -51,7 +51,7 @@ type Props = {
         dropKey: string,
         addKey: string
     ) => void;
-    seasonId: number; // ✅ ADD THIS
+    seasonId: number;
     LockIcon: React.FC<{ locked: boolean; isCaptain?: boolean }>;
     readOnly?: boolean;
 };
@@ -83,7 +83,7 @@ export function DesktopTeamCard(props: Props) {
     const activeNight: "MON" | "FRI" =
         !team.processed.MON ? "MON" : "FRI";
 
-    // ✅ captainKey is nullable during bootstrap/new season
+    // captainKey is nullable during bootstrap/new season
     const captainKey = maybeCaptainKey(team);
 
     const baseActives = isDraftComplete
