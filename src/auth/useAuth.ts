@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 export type AuthUser = {
   userId: string;
   name: string;
+  role: "admin" | "player" | "visitor";
   teamId: string | null;
 };
 
@@ -12,6 +13,8 @@ type JwtPayload = {
   name?: string;
   unique_name?: string;
   teamId?: string;
+  role?: string;
+  "http://schemas.microsoft.com/ws/2008/06/identity/claims/role"?: string;
 };
 
 function parseJwt(token: string): JwtPayload {
@@ -50,14 +53,18 @@ export function useAuth(authDirty?: number) {
       null;
 
     const userId = payload.sub ?? null;
-
+    const role =
+      payload.role ??
+      payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ??
+      "player";
     setAuth(
       name && userId
         ? {
-            name,
-            userId,
-            teamId: payload.teamId ?? null, // 🔒 ALWAYS resolved from DB
-          }
+          name,
+          userId,
+          role: role as "admin" | "player" | "visitor",
+          teamId: payload.teamId ?? null, // 🔒 ALWAYS resolved from DB
+        }
         : null
     );
   }, [authDirty]);

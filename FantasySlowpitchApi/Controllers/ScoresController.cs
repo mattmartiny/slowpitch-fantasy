@@ -61,6 +61,9 @@ public class ScoresController : ControllerBase
         [FromBody] List<WeeklyScoreDto> scores
     )
     {
+
+        if (User.IsInRole("visitor"))
+            return Forbid();
         using var conn = new SqlConnection(
             _config.GetConnectionString("Default")
         );

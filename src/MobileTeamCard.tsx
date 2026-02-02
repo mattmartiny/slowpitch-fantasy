@@ -29,7 +29,8 @@ type Props = {
     isPlayerLocked: (team: Team, key: string, night: "MON" | "FRI") => boolean;
     isNightLocked: (team: Team, night: "MON" | "FRI") => boolean;
     LockIcon: React.FC<{ locked: boolean; isCaptain?: boolean }>;
-    seasonId: number; // ✅ ADD THIS
+    seasonId: number;
+    readOnly?: boolean;
 };
 
 export function MobileTeamCard({
@@ -47,7 +48,8 @@ export function MobileTeamCard({
     LockIcon,
     isDraftComplete,
     doAddDrop,
-    seasonId
+    seasonId,
+    readOnly = false,
 }: Props) {
 
 
@@ -86,7 +88,8 @@ export function MobileTeamCard({
             : team.bench
     );
 
-    const editable = canEditTeam(teamIdx);
+    const editable = !readOnly && canEditTeam(teamIdx);
+
 
     const rosterKeys = Array.from(
         new Set([...(team.active ?? []), ...(team.bench ?? [])])
@@ -105,6 +108,7 @@ export function MobileTeamCard({
 
 
     async function handleSaveLineup() {
+        if (!editable) return;
         const players: {
             playerId: string;
             slot: "active" | "bench";
@@ -149,7 +153,11 @@ export function MobileTeamCard({
     return (
         <div style={{ border: "2px solid #ddd", borderRadius: 14, padding: 12, opacity: editable ? 1 : 0.6 }}>
 
-
+            {readOnly && (
+                <div style={{ fontSize: 12, color: "#777", marginBottom: 6 }}>
+                    👀 Viewing as Visitor (read-only)
+                </div>
+            )}
 
             {/* HEADER */}
             <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -177,7 +185,7 @@ export function MobileTeamCard({
                     !isCaptain && isPlayerLocked(team, key, activeNight);
 
                 const canSwapOut =
-                    canEditTeam(idx) &&
+                    editable &&
                     !locked &&
                     (!isNightLocked(team, activeNight) || isCaptain);
 
@@ -195,7 +203,7 @@ export function MobileTeamCard({
                             <LockIcon locked={locked} isCaptain={isCaptain} />
                             {isCaptain && " 🧢"}
                         </div>
-                        {canEditTeam(teamIdx) && (
+                        {editable && (
                             <button
                                 disabled={!canSwapOut}
                                 onClick={() =>
@@ -225,7 +233,7 @@ export function MobileTeamCard({
                     !isCaptain && isPlayerLocked(team, key, activeNight);
 
                 const canSwapIn =
-                    canEditTeam(idx) &&
+                    editable &&
                     pendingSwap?.out &&
                     !locked &&
                     (!isNightLocked(team, activeNight) || isCaptain);
@@ -244,7 +252,7 @@ export function MobileTeamCard({
                             <LockIcon locked={locked} isCaptain={isCaptain} />
                             {isCaptain && " 🧢"}
                         </div>
-                        {canEditTeam(teamIdx) && (
+                        {editable && (
                             <button
                                 disabled={!canSwapIn}
                                 onClick={() =>
@@ -332,6 +340,7 @@ export function MobileTeamCard({
                             <button
                                 disabled={addDropDisabled}
                                 onClick={() => {
+                                    if (!editable) return;
                                     doAddDrop(teamIdx, dropKey, addKey);
                                     setDropKey("");
                                     setAddKey("");
@@ -350,7 +359,7 @@ export function MobileTeamCard({
 
 
             <button
-                disabled={!isDraftComplete || !canEditTeam(teamIdx)}
+                disabled={!isDraftComplete || !editable}
                 onClick={handleSaveLineup}
             >
                 💾 Save Lineup
@@ -364,7 +373,11 @@ export function MobileTeamCard({
                 pendingSwap.in && (
                     <div style={{ marginTop: 10 }}>
                         <button
-                            onClick={executeSwap}
+                            onClick={() => {
+                                if (!editable) return;
+                                executeSwap()
+                            }}
+
                             style={{ marginRight: 6 }}
                         >
                             Confirm
@@ -373,7 +386,8 @@ export function MobileTeamCard({
                             Cancel
                         </button>
                     </div>
-                )}
-        </div>
+                )
+            }
+        </div >
     );
 }

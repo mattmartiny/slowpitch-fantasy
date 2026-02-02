@@ -525,7 +525,7 @@ export function AuthedApp({
   const [draftReady, setDraftReady] = useState(false);
   const [seasonId, setSeasonId] = useState<number | null>(null);
   const [showHistory, setShowHistory] = useState(false);
-
+  const isVisitor = auth?.role === "visitor";
 
   const [state, setState] = useState<AppState>(() => {
     try {
@@ -2449,6 +2449,7 @@ export function AuthedApp({
               isPlayerLocked={isPlayerLocked}
               isNightLocked={isNightLocked}
               LockIcon={LockIcon}
+              readOnly={isVisitor}
               isDraftComplete={isDraftComplete}
             />
           ) : (
@@ -2470,6 +2471,7 @@ export function AuthedApp({
               executeSwap={executeSwap}
               isPlayerLocked={isPlayerLocked}
               isNightLocked={isNightLocked}
+              readOnly={isVisitor}
               LockIcon={LockIcon}
             />
           );

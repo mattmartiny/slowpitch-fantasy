@@ -53,6 +53,7 @@ type Props = {
     ) => void;
     seasonId: number; // ✅ ADD THIS
     LockIcon: React.FC<{ locked: boolean; isCaptain?: boolean }>;
+    readOnly?: boolean;
 };
 
 
@@ -73,7 +74,8 @@ export function DesktopTeamCard(props: Props) {
         LockIcon,
         record,
         isDraftComplete,
-        seasonId
+        seasonId,
+        readOnly = false,
     } = props;
 
     const idx = teamIdx;
@@ -95,7 +97,7 @@ export function DesktopTeamCard(props: Props) {
     const activeList = captainFirst(baseActives, captainKey);
     const benchList = captainFirst(baseBench, captainKey);
 
-    
+
     console.log({
         owner: team.owner,
         night: activeNight,
@@ -104,6 +106,7 @@ export function DesktopTeamCard(props: Props) {
         bench: benchList,
     });
     async function handleSaveLineup() {
+        if (!editable) return;
         const players: {
             playerId: string;
             slot: "active" | "bench";
@@ -142,8 +145,7 @@ export function DesktopTeamCard(props: Props) {
 
         alert("Lineup saved");
     }
-
-    const editable = canEditTeam(teamIdx);
+    const editable = !readOnly && canEditTeam(teamIdx);
     const [showAddDrop, setShowAddDrop] = React.useState(false);
     const [dropKey, setDropKey] = React.useState("");
     const [addKey, setAddKey] = React.useState("");
@@ -151,24 +153,30 @@ export function DesktopTeamCard(props: Props) {
 
 
     const rosterKeys = Array.from(
-  new Set([...(team.active ?? []), ...(team.bench ?? [])])
-);
+        new Set([...(team.active ?? []), ...(team.bench ?? [])])
+    );
 
-const droppable = rosterKeys.filter(
-  k => k !== team.captainKey
-);
+    const droppable = rosterKeys.filter(
+        k => k !== team.captainKey
+    );
 
-const addDropDisabled =
-  !editable ||
-  !isDraftComplete ||
-  team.seasonAddDropsUsed >= 2 ||
-  !dropKey ||
-  !addKey;
+    const addDropDisabled =
+        !editable ||
+        !isDraftComplete ||
+        team.seasonAddDropsUsed >= 2 ||
+        !dropKey ||
+        !addKey;
 
     return (
         <div style={{ border: "2px solid #ddd", borderRadius: 14, padding: 12, opacity: editable ? 1 : 0.6 }}>
             <div key={team.owner} style={{ border: "2px solid #ddd", borderRadius: 14, padding: 12 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    {readOnly && (
+                        <div style={{ fontSize: 12, color: "#777", marginBottom: 6 }}>
+                         Viewing as Visitor (read-only)
+                        </div>
+                    )}
+
                     <h3 style={{ margin: 0 }}>
                         {team.owner}
                         <span style={{ marginLeft: 8, fontSize: 13, color: "#666" }}>
@@ -198,7 +206,7 @@ const addDropDisabled =
                         const locked = !isCaptain && isPlayerLocked(team, k, activeNight);
 
                         const canSwapOut =
-                            canEditTeam(idx) &&
+                            editable &&
                             !locked &&
                             (
                                 !isNightLocked(team, activeNight) ||
@@ -232,7 +240,7 @@ const addDropDisabled =
 
                                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                                     <div style={{ fontWeight: 600 }}>{p.points} pts</div>
-                                    {canEditTeam(teamIdx) && (
+                                    {editable && (
                                         <button
                                             disabled={!canSwapOut}
                                             onClick={() =>
@@ -268,7 +276,7 @@ const addDropDisabled =
                             ? { opacity: 0.6, filter: "grayscale(30%)" }
                             : undefined;
                         const canSwapIn =
-                            canEditTeam(idx) &&
+                            editable &&
                             !isPlayerLocked(team, k, activeNight) &&
                             (
                                 !isNightLocked(team, activeNight) ||
@@ -310,7 +318,7 @@ const addDropDisabled =
                                     <div style={{ fontWeight: 600 }}>
                                         {p.points} pts
                                     </div>
-                                    {canEditTeam(teamIdx) && (
+                                    {editable && (
                                         <button
                                             disabled={!canSwapIn}
                                             onClick={() =>
@@ -332,7 +340,7 @@ const addDropDisabled =
                 </div>
 
                 <button
-                    disabled={!isDraftComplete || !canEditTeam(teamIdx)}
+                    disabled={!isDraftComplete || !editable}
                     onClick={handleSaveLineup}
                 >
                     💾 Save Lineup
@@ -388,91 +396,92 @@ const addDropDisabled =
 
 
                 {/* ADD / DROP */}
-             {/* ADD / DROP (SEASON-BASED) */}
-{editable && isDraftComplete && (
-  <div
-    style={{
-      marginTop: 16,
-      padding: 12,
-      borderTop: "2px solid #eee",
-      background: "#fafafa",
-      borderRadius: 10,
-    }}
-  >
-    <div style={{ display: "flex", justifyContent: "space-between" }}>
-      <h4 style={{ margin: 0 }}>Add / Drop</h4>
-      <span style={{ fontSize: 12, color: "#666" }}>
-        {2 - team.seasonAddDropsUsed} remaining
-      </span>
-    </div>
+                {/* ADD / DROP (SEASON-BASED) */}
+                {editable && isDraftComplete && (
+                    <div
+                        style={{
+                            marginTop: 16,
+                            padding: 12,
+                            borderTop: "2px solid #eee",
+                            background: "#fafafa",
+                            borderRadius: 10,
+                        }}
+                    >
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                            <h4 style={{ margin: 0 }}>Add / Drop</h4>
+                            <span style={{ fontSize: 12, color: "#666" }}>
+                                {2 - team.seasonAddDropsUsed} remaining
+                            </span>
+                        </div>
 
-    <button
-      style={{ marginTop: 6 }}
-      disabled={team.seasonAddDropsUsed >= 2}
-      onClick={() => setShowAddDrop(s => !s)}
-    >
-      {showAddDrop ? "Hide" : "Open"}
-    </button>
+                        <button
+                            style={{ marginTop: 6 }}
+                            disabled={team.seasonAddDropsUsed >= 2}
+                            onClick={() => setShowAddDrop(s => !s)}
+                        >
+                            {showAddDrop ? "Hide" : "Open"}
+                        </button>
 
-    {showAddDrop && (
-      <div style={{ marginTop: 10 }}>
-        {/* DROP */}
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 12, color: "#444" }}>Drop</div>
-          <select
-            value={dropKey}
-            onChange={e => setDropKey(e.target.value)}
-            style={{ width: "100%" }}
-          >
-            <option value="">Select player</option>
-            {droppable.map(k => (
-              <option key={k} value={k}>
-                {playersByKey.get(k)?.displayName ?? k}
-              </option>
-            ))}
-          </select>
-        </div>
+                        {showAddDrop && (
+                            <div style={{ marginTop: 10 }}>
+                                {/* DROP */}
+                                <div style={{ marginBottom: 8 }}>
+                                    <div style={{ fontSize: 12, color: "#444" }}>Drop</div>
+                                    <select
+                                        value={dropKey}
+                                        onChange={e => setDropKey(e.target.value)}
+                                        style={{ width: "100%" }}
+                                    >
+                                        <option value="">Select player</option>
+                                        {droppable.map(k => (
+                                            <option key={k} value={k}>
+                                                {playersByKey.get(k)?.displayName ?? k}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-        {/* ADD */}
-        <div style={{ marginBottom: 8 }}>
-          <div style={{ fontSize: 12, color: "#444" }}>Add</div>
-          <select
-            value={addKey}
-            onChange={e => setAddKey(e.target.value)}
-            style={{ width: "100%" }}
-          >
-            <option value="">Select player</option>
-            {availablePlayers.map(p => (
-              <option key={p.key} value={p.key}>
-                {p.displayName}
-              </option>
-            ))}
-          </select>
-        </div>
+                                {/* ADD */}
+                                <div style={{ marginBottom: 8 }}>
+                                    <div style={{ fontSize: 12, color: "#444" }}>Add</div>
+                                    <select
+                                        value={addKey}
+                                        onChange={e => setAddKey(e.target.value)}
+                                        style={{ width: "100%" }}
+                                    >
+                                        <option value="">Select player</option>
+                                        {availablePlayers.map(p => (
+                                            <option key={p.key} value={p.key}>
+                                                {p.displayName}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
 
-        <button
-          disabled={addDropDisabled}
-          onClick={() => {
-            doAddDrop(teamIdx, dropKey, addKey);
-            setDropKey("");
-            setAddKey("");
-            setShowAddDrop(false);
-          }}
-          style={{
-            width: "100%",
-            padding: 10,
-            borderRadius: 8,
-            background: addDropDisabled ? "#ccc" : "#111",
-            color: "white",
-            fontWeight: 600,
-          }}
-        >
-          ✅ Confirm Add / Drop
-        </button>
-      </div>
-    )}
-  </div>
-)}
+                                <button
+                                    disabled={addDropDisabled}
+                                    onClick={() => {
+                                        if (!editable) return;
+                                        doAddDrop(teamIdx, dropKey, addKey);
+                                        setDropKey("");
+                                        setAddKey("");
+                                        setShowAddDrop(false);
+                                    }}
+                                    style={{
+                                        width: "100%",
+                                        padding: 10,
+                                        borderRadius: 8,
+                                        background: addDropDisabled ? "#ccc" : "#111",
+                                        color: "white",
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    ✅ Confirm Add / Drop
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
 
             </div>
         </div >

@@ -18,26 +18,27 @@ public class LineupsController : ControllerBase
         _db = db;
         _config = config;
     }
-[HttpGet("{seasonId:int}/{week:int}")]
-public async Task<IActionResult> GetWeeklyLineups(
-    int seasonId,
-    int week)
-{
-    var rows = await _db.WeeklyLineups
-        .Where(l =>
-            l.SeasonId == seasonId &&
-            l.Week == week &&
-            l.Slot == "active"
-        )
-        .Select(l => new {
-            teamId = l.TeamId,
-            playerId = l.PlayerId,
-            night = l.Night
-        })
-        .ToListAsync();
+    [HttpGet("{seasonId:int}/{week:int}")]
+    public async Task<IActionResult> GetWeeklyLineups(
+        int seasonId,
+        int week)
+    {
+        var rows = await _db.WeeklyLineups
+            .Where(l =>
+                l.SeasonId == seasonId &&
+                l.Week == week &&
+                l.Slot == "active"
+            )
+            .Select(l => new
+            {
+                teamId = l.TeamId,
+                playerId = l.PlayerId,
+                night = l.Night
+            })
+            .ToListAsync();
 
-    return Ok(rows);
-}
+        return Ok(rows);
+    }
 
 
     [HttpPost("{seasonId:int}/{week:int}")]
@@ -47,6 +48,10 @@ public async Task<IActionResult> GetWeeklyLineups(
         [FromBody] WeeklyLineupDto dto
     )
     {
+        if (User.IsInRole("visitor"))
+            return Forbid();
+
+
         if (dto == null || dto.Active == null)
             return BadRequest("Invalid payload");
 
@@ -110,6 +115,9 @@ public async Task<IActionResult> GetWeeklyLineups(
         [FromBody] SaveLineupSnapshotDto dto
     )
     {
+        if (User.IsInRole("visitor"))
+            return Forbid();
+
         if (dto == null || dto.Players == null || dto.Players.Count == 0)
             return BadRequest("Invalid lineup payload");
 

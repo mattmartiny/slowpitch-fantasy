@@ -21,39 +21,43 @@ public class SeasonsController : ControllerBase
         _config = config;
     }
 
- [HttpPost("{seasonId}/draft")]
-public async Task<IActionResult> SaveDraft(
-    int seasonId,
-    [FromBody] List<SeasonDraft> picks
-)
-{
-    if (picks == null || picks.Count == 0)
-        return BadRequest("No draft picks provided");
-
-    // 🔁 Idempotent save — clear existing draft
-    var existing = _db.SeasonDrafts
-        .Where(d => d.SeasonId == seasonId);
-
-    _db.SeasonDrafts.RemoveRange(existing);
-
-    foreach (var pick in picks)
+    [HttpPost("{seasonId}/draft")]
+    public async Task<IActionResult> SaveDraft(
+       int seasonId,
+       [FromBody] List<SeasonDraft> picks
+   )
     {
-        _db.SeasonDrafts.Add(new SeasonDraft
+        if (picks == null || picks.Count == 0)
+            return BadRequest("No draft picks provided");
+
+        // 🔁 Idempotent save — clear existing draft
+        var existing = _db.SeasonDrafts
+            .Where(d => d.SeasonId == seasonId);
+
+        _db.SeasonDrafts.RemoveRange(existing);
+
+        foreach (var pick in picks)
         {
-            SeasonId = seasonId,
-            TeamId = pick.TeamId,
-            PlayerId = pick.PlayerId
-        });
+            _db.SeasonDrafts.Add(new SeasonDraft
+            {
+                SeasonId = seasonId,
+                TeamId = pick.TeamId,
+                PlayerId = pick.PlayerId
+            });
+        }
+
+        await _db.SaveChangesAsync();
+
+        return Ok();
     }
-
-    await _db.SaveChangesAsync();
-
-    return Ok();
-}
 
     [HttpPost("new")]
     public async Task<IActionResult> StartNewSeason()
     {
+        if (User.IsInRole("visitor"))
+            return Forbid();
+
+
         using var conn = new SqlConnection(
             _config.GetConnectionString("Default")
         );
@@ -113,6 +117,9 @@ public async Task<IActionResult> SaveDraft(
     [HttpPost("{seasonId:int}/advance-week")]
     public async Task<IActionResult> AdvanceWeek(int seasonId)
     {
+
+        if (User.IsInRole("visitor"))
+            return Forbid();
         var season = await _db.Seasons.FirstOrDefaultAsync(s => s.SeasonId == seasonId);
         if (season == null) return NotFound();
 

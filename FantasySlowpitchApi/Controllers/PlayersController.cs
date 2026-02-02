@@ -54,6 +54,10 @@ public class PlayersController : ControllerBase
     [HttpPost("sync")]
     public async Task<IActionResult> SyncPlayers([FromBody] List<PlayerSyncDto> players)
     {
+
+        if (User.IsInRole("visitor"))
+    return Forbid();
+
         var conn = _db.Database.GetDbConnection();
         await conn.OpenAsync();
 

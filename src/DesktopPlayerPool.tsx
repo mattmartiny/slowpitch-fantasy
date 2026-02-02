@@ -133,9 +133,7 @@ export function DesktopPlayerPool({
                         )}
                     </tbody>
                 </table>
-                <p style={{ marginTop: 14, fontSize: 12, color: "#666" }}>
-                    Next: trade log + add/drop (once per session), then nightly imports.
-                </p>
+        
 
 
 
