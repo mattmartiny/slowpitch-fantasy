@@ -75,7 +75,7 @@ export function MobileTeamCard({
 
 
 
-    // 🔒 SOURCE OF TRUTH
+    // SOURCE OF TRUTH
     const activeList = captainFirst(
         isDraftComplete
             ? team.activeByNight[activeNight]
